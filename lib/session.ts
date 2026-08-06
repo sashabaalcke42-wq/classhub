@@ -17,7 +17,8 @@ export async function createSession(payload: SessionPayload) {
     .setExpirationTime("30d")
     .sign(secret);
 
-  cookies().set(COOKIE_NAME, token, {
+  const store = await cookies();
+  store.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
@@ -27,7 +28,8 @@ export async function createSession(payload: SessionPayload) {
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
-  const token = cookies().get(COOKIE_NAME)?.value;
+  const store = await cookies();
+  const token = store.get(COOKIE_NAME)?.value;
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret);
@@ -37,6 +39,7 @@ export async function getSession(): Promise<SessionPayload | null> {
   }
 }
 
-export function destroySession() {
-  cookies().delete(COOKIE_NAME);
+export async function destroySession() {
+  const store = await cookies();
+  store.delete(COOKIE_NAME);
 }

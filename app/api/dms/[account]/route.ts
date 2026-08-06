@@ -6,11 +6,12 @@ function dmKey(a: string, b: string) {
   return [a, b].sort().join("__");
 }
 
-export async function GET(_req: Request, { params }: { params: { account: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ account: string }> }) {
+  const { account } = await params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const other = params.account.toLowerCase();
+  const other = account.toLowerCase();
   const key = dmKey(session.accountName, other);
 
   const { data, error } = await supabaseAdmin
@@ -25,11 +26,12 @@ export async function GET(_req: Request, { params }: { params: { account: string
   return NextResponse.json(data);
 }
 
-export async function POST(req: Request, { params }: { params: { account: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ account: string }> }) {
+  const { account } = await params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const other = params.account.toLowerCase();
+  const other = account.toLowerCase();
   const { body } = await req.json();
   const text = String(body ?? "").trim();
   if (!text) return NextResponse.json({ error: "Empty message" }, { status: 400 });
