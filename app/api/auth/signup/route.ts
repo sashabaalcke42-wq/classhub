@@ -26,45 +26,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
   }
 
-  try {
-    // First account created on the whole site becomes admin.
-    const { count, error: countError } = await supabaseAdmin
-      .from("users")
-      .select("*", { count: "exact", head: true });
+  // First account created on the whole site becomes admin.
+  const { count } = await supabaseAdmin
+    .from("users")
+    .select("*", { count: "exact", head: true });
+  const isFirst = (count ?? 0) === 0;
 
-    if (countError) {
-      return NextResponse.json(
-        { error: "DEBUG count query failed: " + countError.message, code: countError.code },
-        { status: 500 }
-      );
+  const password_hash = await hashPassword(password);
+
+  const { error } = await supabaseAdmin.from("users").insert({
+    account_name: clean,
+    display_name: display,
+    password_hash,
+    is_admin: isFirst,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return NextResponse.json({ error: "That account name is taken" }, { status: 409 });
     }
-    const isFirst = (count ?? 0) === 0;
-
-    const password_hash = await hashPassword(password);
-
-    const { error } = await supabaseAdmin.from("users").insert({
-      account_name: clean,
-      display_name: display,
-      password_hash,
-      is_admin: isFirst,
-    });
-
-    if (error) {
-      if (error.code === "23505") {
-        return NextResponse.json({ error: "That account name is taken" }, { status: 409 });
-      }
-      return NextResponse.json(
-        { error: "DEBUG insert failed: " + error.message, code: error.code },
-        { status: 500 }
-      );
-    }
-
-    await createSession({ accountName: clean, displayName: display, isAdmin: isFirst });
-    return NextResponse.json({ ok: true, isAdmin: isFirst });
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: "DEBUG unexpected exception: " + (err?.message ?? String(err)) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Signup failed" }, { status: 500 });
   }
+
+  await createSession({ accountName: clean, displayName: display, isAdmin: isFirst });
+  return NextResponse.json({ ok: true, isAdmin: isFirst });
 }
