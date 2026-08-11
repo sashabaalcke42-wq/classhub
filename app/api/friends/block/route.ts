@@ -12,25 +12,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid account" }, { status: 400 });
   }
 
-  const { data: user } = await supabaseAdmin
-    .from("users")
-    .select("account_name")
-    .eq("account_name", target)
-    .maybeSingle();
-  if (!user) return NextResponse.json({ error: "No account with that name" }, { status: 404 });
-
-  const { data: blockedByThem } = await supabaseAdmin
-    .from("blocks")
-    .select("*")
-    .eq("blocker", target)
-    .eq("blocked", session.accountName)
-    .maybeSingle();
-  if (blockedByThem) return NextResponse.json({ error: "Unable to send request" }, { status: 403 });
+  const [a, b] = [session.accountName, target].sort();
+  await supabaseAdmin.from("friends").delete().eq("account_a", a).eq("account_b", b);
+  await supabaseAdmin
+    .from("friend_requests")
+    .delete()
+    .or(
+      `and(from_account.eq.${session.accountName},to_account.eq.${target}),and(from_account.eq.${target},to_account.eq.${session.accountName})`
+    );
 
   const { error } = await supabaseAdmin
-    .from("friend_requests")
-    .insert({ from_account: session.accountName, to_account: target });
-
+    .from("blocks")
+    .insert({ blocker: session.accountName, blocked: target });
   if (error && error.code !== "23505") {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -89,6 +89,14 @@ export default function Rail({
         title="Arcade" onClick={() => router.push("/dashboard/arcade")}>
         🕹️
       </div>
+      <div className={`${iconBase} ${pathname === "/dashboard/directory" ? active : ""}`}
+        title="Directory" onClick={() => router.push("/dashboard/directory")}>
+        🔍
+      </div>
+      <div className={`${iconBase} ${pathname === "/dashboard/leaderboards" ? active : ""}`}
+        title="Leaderboards" onClick={() => router.push("/dashboard/leaderboards")}>
+        🏆
+      </div>
       {isAdmin && (
         <div className={`${iconBase} ${pathname === "/dashboard/admin" ? active : ""} !text-gold`}
           title="Admin" onClick={() => router.push("/dashboard/admin")}>
@@ -98,12 +106,19 @@ export default function Rail({
 
       <div className="flex-1" />
       <div
-        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs cursor-pointer text-bg0"
+        className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs cursor-pointer text-bg0 ${pathname === "/dashboard/profile" ? "ring-2 ring-violet" : ""}`}
         style={{ background: colorFor(accountName) }}
-        title={`${displayName} — click to log out`}
-        onClick={logout}
+        title={displayName}
+        onClick={() => router.push("/dashboard/profile")}
       >
         {initials(displayName)}
+      </div>
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm text-txt2 hover:text-danger cursor-pointer"
+        title="Log out"
+        onClick={logout}
+      >
+        ⏻
       </div>
     </div>
   );

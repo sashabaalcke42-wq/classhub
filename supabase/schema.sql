@@ -7,7 +7,17 @@ create table users (
   display_name  text not null,
   password_hash text not null,
   is_admin      boolean not null default false,
+  avatar_path   text,
+  bio           text,
+  credits       integer not null default 100,
   created_at    timestamptz not null default now()
+);
+
+create table blocks (
+  blocker text not null references users(account_name) on delete cascade,
+  blocked text not null references users(account_name) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (blocker, blocked)
 );
 
 create table friend_requests (

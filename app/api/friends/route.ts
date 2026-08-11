@@ -20,13 +20,25 @@ export async function GET() {
     ...(pairsB ?? []).map((p) => p.account_a),
   ];
 
-  const { data: requests } = await supabaseAdmin
+  const { data: incoming } = await supabaseAdmin
     .from("friend_requests")
     .select("from_account")
     .eq("to_account", session.accountName);
 
+  const { data: outgoing } = await supabaseAdmin
+    .from("friend_requests")
+    .select("to_account")
+    .eq("from_account", session.accountName);
+
+  const { data: blocked } = await supabaseAdmin
+    .from("blocks")
+    .select("blocked")
+    .eq("blocker", session.accountName);
+
   return NextResponse.json({
     friends,
-    requests: (requests ?? []).map((r) => r.from_account),
+    requests: (incoming ?? []).map((r) => r.from_account),
+    outgoing: (outgoing ?? []).map((r) => r.to_account),
+    blocked: (blocked ?? []).map((b) => b.blocked),
   });
 }
