@@ -54,11 +54,15 @@ export default function AdminPage() {
   }
   async function deleteUser(accountName: string) {
     if (!confirm(`Delete account "${accountName}"? This cannot be undone.`)) return;
-    await fetch("/api/admin/users", {
+    const res = await fetch("/api/admin/users", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accountName }),
     });
+    if (!res.ok) {
+      const data = await res.json();
+      alert("Delete failed: " + (data.error ?? "Unknown error"));
+    }
     loadUsers();
   }
   async function deleteGroup(id: string) {
