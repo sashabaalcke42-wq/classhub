@@ -38,5 +38,29 @@ export async function GET(req: Request) {
     return NextResponse.json(ranked);
   }
 
+  if (type === "quiz") {
+    const { data: responses } = await supabaseAdmin
+      .from("quiz_responses")
+      .select("is_correct, quiz_attempts(account_name)");
+    const counts: Record<string, number> = {};
+    for (const r of responses ?? []) {
+      if (r.is_correct !== true) continue;
+      const acc = (r.quiz_attempts as any)?.account_name;
+      if (!acc) continue;
+      counts[acc] = (counts[acc] ?? 0) + 1;
+    }
+    const { data: users, error } = await supabaseAdmin
+      .from("users")
+      .select("account_name, display_name, avatar_path");
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const ranked = users
+      .map((u) => ({ ...u, value: counts[u.account_name] ?? 0 }))
+      .filter((u) => u.value > 0)
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 50);
+    return NextResponse.json(ranked);
+  }
+
   return NextResponse.json({ error: "Unknown leaderboard type" }, { status: 400 });
 }

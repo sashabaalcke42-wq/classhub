@@ -89,6 +89,10 @@ export default function Rail({
         title="Arcade" onClick={() => router.push("/dashboard/arcade")}>
         🕹️
       </div>
+      <div className={`${iconBase} ${pathname.startsWith("/dashboard/quizzes") ? active : ""}`}
+        title="Quizzes" onClick={() => router.push("/dashboard/quizzes")}>
+        📝
+      </div>
       <div className={`${iconBase} ${pathname === "/dashboard/directory" ? active : ""}`}
         title="Directory" onClick={() => router.push("/dashboard/directory")}>
         🔍

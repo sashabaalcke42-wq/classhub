@@ -9,11 +9,15 @@ type Game = { id: string; name: string; added_by: string };
 type DMMsg = { id: string; display_name: string; body: string; created_at: string };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games">("users");
+  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games" | "quizzes">("users");
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [dms, setDms] = useState<DMConv[]>([]);
   const [games, setGames] = useState<Game[]>([]);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [gradeQueue, setGradeQueue] = useState<any[]>([]);
+  const [showNewQuiz, setShowNewQuiz] = useState(false);
+  const [gradingQuiz, setGradingQuiz] = useState<string | null>(null);
   const [viewingDM, setViewingDM] = useState<DMConv | null>(null);
   const [dmMsgs, setDmMsgs] = useState<DMMsg[]>([]);
   const [me, setMe] = useState<string>("");
@@ -35,12 +39,33 @@ export default function AdminPage() {
   async function loadGames() {
     setGames(await fetch("/api/games").then((r) => r.json()));
   }
+  async function loadQuizzes() {
+    setQuizzes(await fetch("/api/admin/quizzes").then((r) => r.json()));
+  }
+  async function deleteQuiz(id: string) {
+    if (!confirm("Delete this quiz and all attempts?")) return;
+    await fetch(`/api/admin/quizzes/${id}`, { method: "DELETE" });
+    loadQuizzes();
+  }
+  async function openGrading(quizId: string) {
+    setGradingQuiz(quizId);
+    setGradeQueue(await fetch(`/api/admin/quizzes/${quizId}/grade`).then((r) => r.json()));
+  }
+  async function grade(responseId: string, isCorrect: boolean) {
+    await fetch(`/api/admin/quizzes/${gradingQuiz}/grade`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ responseId, isCorrect }),
+    });
+    if (gradingQuiz) openGrading(gradingQuiz);
+  }
 
   useEffect(() => {
     if (tab === "users") loadUsers();
     if (tab === "groups") loadGroups();
     if (tab === "dms") loadDMs();
     if (tab === "games") loadGames();
+    if (tab === "quizzes") loadQuizzes();
     setViewingDM(null);
   }, [tab]);
 
@@ -100,6 +125,7 @@ export default function AdminPage() {
         {tabBtn("groups", "Groups")}
         {tabBtn("dms", "DMs")}
         {tabBtn("games", "Games")}
+        {tabBtn("quizzes", "Quizzes")}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -263,6 +289,158 @@ export default function AdminPage() {
               </tbody>
             </table>
           ))}
+
+        {tab === "quizzes" &&
+          (gradingQuiz ? (
+            <div>
+              <button onClick={() => setGradingQuiz(null)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mb-3">← back</button>
+              {gradeQueue.length === 0 ? <Empty text="No written answers to grade" /> :
+                gradeQueue.map((r: any) => (
+                  <div key={r.id} className="bg-bg2 border border-line rounded-lg p-3 mb-2">
+                    <div className="text-xs text-txt2 mb-1">{r.quiz_attempts.account_name} — {r.quiz_questions.question_text}</div>
+                    <div className="text-sm mb-2">{r.answer_text || "(blank)"}</div>
+                    {r.is_correct === null ? (
+                      <div className="flex gap-2">
+                        <button onClick={() => grade(r.id, true)} className="bg-online/15 text-online rounded px-3 py-1 text-xs">Mark correct</button>
+                        <button onClick={() => grade(r.id, false)} className="bg-danger/15 text-danger rounded px-3 py-1 text-xs">Mark incorrect</button>
+                      </div>
+                    ) : (
+                      <span className={`text-xs ${r.is_correct ? "text-online" : "text-danger"}`}>{r.is_correct ? "Marked correct" : "Marked incorrect"}</span>
+                    )}
+                  </div>
+                ))
+              }
+            </div>
+          ) : (
+            <>
+              <button onClick={() => setShowNewQuiz(true)} className="bg-violet text-white rounded-md px-3.5 py-1.5 text-sm font-semibold mb-4">
+                + New quiz
+              </button>
+              {quizzes.length === 0 ? <Empty text="No quizzes yet" /> :
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="text-left text-txt2 text-[11px] uppercase tracking-wide border-b border-line">
+                      <th className="py-2 px-2">Title</th>
+                      <th className="py-2 px-2">Questions</th>
+                      <th className="py-2 px-2">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quizzes.map((q: any) => (
+                      <tr key={q.id} className="border-b border-line text-txt1">
+                        <td className="py-2 px-2">{q.title}</td>
+                        <td className="py-2 px-2">{q.questionCount}</td>
+                        <td className="py-2 px-2">
+                          <button onClick={() => openGrading(q.id)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5">Grade written</button>
+                          <button onClick={() => deleteQuiz(q.id)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs hover:text-danger">Delete</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              }
+              {showNewQuiz && <NewQuizModal onClose={() => setShowNewQuiz(false)} onCreated={() => { setShowNewQuiz(false); loadQuizzes(); }} />}
+            </>
+          ))}
+      </div>
+    </div>
+  );
+}
+
+function NewQuizModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [questions, setQuestions] = useState<any[]>([{ type: "true_false", questionText: "", correctAnswer: "true", options: [] }]);
+  const [error, setError] = useState("");
+
+  function updateQ(i: number, patch: any) {
+    setQuestions((qs) => qs.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
+  }
+  function addQuestion() {
+    if (questions.length >= 4) return;
+    setQuestions((qs) => [...qs, { type: "true_false", questionText: "", correctAnswer: "true", options: [] }]);
+  }
+  function removeQuestion(i: number) {
+    setQuestions((qs) => qs.filter((_, idx) => idx !== i));
+  }
+
+  async function create() {
+    setError("");
+    const res = await fetch("/api/admin/quizzes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description, questions }),
+    });
+    const data = await res.json();
+    if (!res.ok) setError(data.error);
+    else onCreated();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-bg1 border border-line rounded-xl p-6 w-[520px] max-h-[85vh] overflow-y-auto">
+        <h3 className="font-display text-lg font-bold mb-4">New quiz</h3>
+        {error && <div className="bg-danger/10 border border-danger/30 text-danger text-sm px-3 py-2 rounded-md mb-3">{error}</div>}
+
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Quiz title"
+          className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-3 outline-none focus:border-violet" />
+        <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" rows={2}
+          className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-4 outline-none focus:border-violet resize-none" />
+
+        {questions.map((q, i) => (
+          <div key={i} className="bg-bg2 border border-line rounded-lg p-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-txt2">Question {i + 1}</span>
+              {questions.length > 1 && <button onClick={() => removeQuestion(i)} className="text-xs text-danger">Remove</button>}
+            </div>
+            <select value={q.type} onChange={(e) => updateQ(i, { type: e.target.value, correctAnswer: e.target.value === "true_false" ? "true" : "", options: [] })}
+              className="w-full bg-bg3 border border-line rounded-md px-2 py-1.5 text-sm mb-2">
+              <option value="true_false">True / False</option>
+              <option value="multiple_choice">Multiple choice</option>
+              <option value="written">Written answer</option>
+            </select>
+            <input value={q.questionText} onChange={(e) => updateQ(i, { questionText: e.target.value })} placeholder="Question text"
+              className="w-full bg-bg3 border border-line rounded-md px-2 py-1.5 text-sm mb-2" />
+
+            {q.type === "true_false" && (
+              <select value={q.correctAnswer} onChange={(e) => updateQ(i, { correctAnswer: e.target.value })}
+                className="w-full bg-bg3 border border-line rounded-md px-2 py-1.5 text-sm">
+                <option value="true">Correct answer: True</option>
+                <option value="false">Correct answer: False</option>
+              </select>
+            )}
+
+            {q.type === "multiple_choice" && (
+              <div className="flex flex-col gap-1.5">
+                {[0, 1, 2, 3].map((oi) => (
+                  <input key={oi} value={q.options[oi] ?? ""} placeholder={`Option ${oi + 1}`}
+                    onChange={(e) => {
+                      const opts = [...q.options];
+                      opts[oi] = e.target.value;
+                      updateQ(i, { options: opts.filter((o) => o) });
+                    }}
+                    className="w-full bg-bg3 border border-line rounded-md px-2 py-1.5 text-sm" />
+                ))}
+                <select value={q.correctAnswer} onChange={(e) => updateQ(i, { correctAnswer: e.target.value })}
+                  className="w-full bg-bg3 border border-line rounded-md px-2 py-1.5 text-sm mt-1">
+                  <option value="">Select correct option</option>
+                  {q.options.filter((o: string) => o).map((o: string) => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+            )}
+
+            {q.type === "written" && <div className="text-xs text-txt2">You'll grade this answer manually after students submit.</div>}
+          </div>
+        ))}
+
+        {questions.length < 4 && (
+          <button onClick={addQuestion} className="text-sm text-violet mb-4">+ Add question ({questions.length}/4)</button>
+        )}
+
+        <div className="flex gap-2">
+          <button onClick={create} className="flex-1 bg-violet text-white rounded-md py-2 text-sm font-semibold">Create quiz</button>
+          <button onClick={onClose} className="bg-bg2 border border-line rounded-md px-4 text-sm">Cancel</button>
+        </div>
       </div>
     </div>
   );

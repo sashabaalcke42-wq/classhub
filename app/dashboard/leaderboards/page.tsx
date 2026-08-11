@@ -11,6 +11,7 @@ function avatarUrl(path: string | null) {
 const BOARDS = [
   { id: "coins", label: "Most Coins", unit: "coins" },
   { id: "friends", label: "Most Friends", unit: "friends" },
+  { id: "quiz", label: "Most Correct Answers", unit: "correct" },
 ];
 
 export default function LeaderboardsPage() {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getSession } from "@/lib/session";
+import { getSession, destroySession } from "@/lib/session";
 
 export async function GET(req: Request) {
   const session = await getSession();
@@ -36,6 +36,21 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Guard against a session cookie pointing at an account that no longer
+  // exists in the current database (e.g. left over from before a migration).
+  const { data: userExists } = await supabaseAdmin
+    .from("users")
+    .select("account_name")
+    .eq("account_name", session.accountName)
+    .maybeSingle();
+  if (!userExists) {
+    await destroySession();
+    return NextResponse.json(
+      { error: "Your session is out of date — please log in again." },
+      { status: 401 }
+    );
+  }
 
   const { scope, groupId, body } = await req.json();
   const text = String(body ?? "").trim();
