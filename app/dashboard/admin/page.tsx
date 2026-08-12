@@ -9,7 +9,7 @@ type Game = { id: string; name: string; added_by: string };
 type DMMsg = { id: string; display_name: string; body: string; created_at: string };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games" | "quizzes">("users");
+  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games" | "quizzes" | "store">("users");
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [dms, setDms] = useState<DMConv[]>([]);
@@ -18,6 +18,8 @@ export default function AdminPage() {
   const [gradeQueue, setGradeQueue] = useState<any[]>([]);
   const [showNewQuiz, setShowNewQuiz] = useState(false);
   const [gradingQuiz, setGradingQuiz] = useState<string | null>(null);
+  const [storeGames, setStoreGames] = useState<any[]>([]);
+  const [editingStoreGame, setEditingStoreGame] = useState<any | null>(null);
   const [viewingDM, setViewingDM] = useState<DMConv | null>(null);
   const [dmMsgs, setDmMsgs] = useState<DMMsg[]>([]);
   const [me, setMe] = useState<string>("");
@@ -67,6 +69,22 @@ export default function AdminPage() {
     });
     if (gradingQuiz) openGrading(gradingQuiz);
   }
+  async function loadStore() {
+    setStoreGames(await fetch("/api/admin/store").then((r) => r.json()));
+  }
+  async function setStoreStatus(id: string, status: string) {
+    await fetch(`/api/admin/store/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    loadStore();
+  }
+  async function deleteStoreGame(id: string) {
+    if (!confirm("Delete this store listing permanently?")) return;
+    await fetch(`/api/admin/store/${id}`, { method: "DELETE" });
+    loadStore();
+  }
 
   useEffect(() => {
     if (tab === "users") loadUsers();
@@ -74,6 +92,7 @@ export default function AdminPage() {
     if (tab === "dms") loadDMs();
     if (tab === "games") loadGames();
     if (tab === "quizzes") loadQuizzes();
+    if (tab === "store") loadStore();
     setViewingDM(null);
   }, [tab]);
 
@@ -134,6 +153,7 @@ export default function AdminPage() {
         {tabBtn("dms", "DMs")}
         {tabBtn("games", "Games")}
         {tabBtn("quizzes", "Quizzes")}
+        {tabBtn("store", "Store")}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -360,6 +380,87 @@ export default function AdminPage() {
               {showNewQuiz && <NewQuizModal onClose={() => setShowNewQuiz(false)} onCreated={() => { setShowNewQuiz(false); loadQuizzes(); }} />}
             </>
           ))}
+
+        {tab === "store" &&
+          (storeGames.length === 0 ? (
+            <Empty text="No submissions yet" />
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-txt2 text-[11px] uppercase tracking-wide border-b border-line">
+                  <th className="py-2 px-2">Game</th>
+                  <th className="py-2 px-2 font-mono">Submitted by</th>
+                  <th className="py-2 px-2">Status</th>
+                  <th className="py-2 px-2">Price</th>
+                  <th className="py-2 px-2">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {storeGames.map((g: any) => (
+                  <tr key={g.id} className="border-b border-line text-txt1">
+                    <td className="py-2 px-2">{g.name}</td>
+                    <td className="py-2 px-2 font-mono">{g.submitted_by}</td>
+                    <td className="py-2 px-2">
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                        g.status === "approved" ? "bg-online/15 text-online" :
+                        g.status === "rejected" ? "bg-danger/15 text-danger" :
+                        g.status === "needs_changes" ? "bg-gold/15 text-gold" : "bg-bg3 text-txt2"
+                      }`}>{g.status}</span>
+                    </td>
+                    <td className="py-2 px-2">{g.price}</td>
+                    <td className="py-2 px-2 whitespace-nowrap">
+                      {g.status !== "approved" && (
+                        <button onClick={() => setEditingStoreGame(g)} className="bg-online/15 text-online rounded px-2 py-1 text-xs mr-1.5">Approve</button>
+                      )}
+                      {g.status !== "needs_changes" && (
+                        <button onClick={() => setStoreStatus(g.id, "needs_changes")} className="bg-gold/15 text-gold rounded px-2 py-1 text-xs mr-1.5">Needs changes</button>
+                      )}
+                      {g.status !== "rejected" && (
+                        <button onClick={() => setStoreStatus(g.id, "rejected")} className="bg-danger/15 text-danger rounded px-2 py-1 text-xs mr-1.5">Reject</button>
+                      )}
+                      <button onClick={() => deleteStoreGame(g.id)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs hover:text-danger">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+      </div>
+
+      {editingStoreGame && (
+        <ApprovePriceModal
+          game={editingStoreGame}
+          onClose={() => setEditingStoreGame(null)}
+          onApproved={() => { setEditingStoreGame(null); loadStore(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ApprovePriceModal({ game, onClose, onApproved }: { game: any; onClose: () => void; onApproved: () => void }) {
+  const [price, setPrice] = useState(String(game.price ?? 0));
+
+  async function approve() {
+    await fetch(`/api/admin/store/${game.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "approved", price: parseInt(price, 10) || 0 }),
+    });
+    onApproved();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-bg1 border border-line rounded-xl p-6 w-[340px]">
+        <h3 className="font-display text-lg font-bold mb-1">Approve "{game.name}"</h3>
+        <label className="block text-xs uppercase tracking-wide text-txt1 mt-4 mb-1.5">Price in coins (0 = free)</label>
+        <input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)}
+          className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-4" />
+        <div className="flex gap-2">
+          <button onClick={approve} className="flex-1 bg-online text-bg0 rounded-md py-2 text-sm font-semibold">Approve & publish</button>
+          <button onClick={onClose} className="bg-bg2 border border-line rounded-md px-4 text-sm">Cancel</button>
+        </div>
       </div>
     </div>
   );

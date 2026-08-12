@@ -85,6 +85,14 @@ export default function Rail({
         title="Friends & DMs" onClick={() => router.push("/dashboard/friends")}>
         👥
       </div>
+      <div className={`${iconBase} ${pathname === "/dashboard/store" ? active : ""}`}
+        title="Store" onClick={() => router.push("/dashboard/store")}>
+        🛒
+      </div>
+      <div className={`${iconBase} ${pathname === "/dashboard/library" ? active : ""}`}
+        title="Library" onClick={() => router.push("/dashboard/library")}>
+        📚
+      </div>
       <div className={`${iconBase} ${pathname === "/dashboard/arcade" ? active : ""}`}
         title="Arcade" onClick={() => router.push("/dashboard/arcade")}>
         🕹️
