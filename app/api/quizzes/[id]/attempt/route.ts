@@ -55,5 +55,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .update({ submitted_at: new Date().toISOString() })
     .eq("id", attemptId);
 
-  return NextResponse.json({ ok: true });
+  // Award coins for every auto-graded correct answer (true/false, multiple choice).
+  const REWARD_PER_CORRECT = 10;
+  const correctCount = rows.filter((r) => r.is_correct === true).length;
+  if (correctCount > 0) {
+    const { data: user } = await supabaseAdmin
+      .from("users")
+      .select("credits")
+      .eq("account_name", session.accountName)
+      .single();
+    if (user) {
+      await supabaseAdmin
+        .from("users")
+        .update({ credits: user.credits + correctCount * REWARD_PER_CORRECT })
+        .eq("account_name", session.accountName);
+    }
+  }
+
+  return NextResponse.json({ ok: true, coinsEarned: correctCount * REWARD_PER_CORRECT });
 }
