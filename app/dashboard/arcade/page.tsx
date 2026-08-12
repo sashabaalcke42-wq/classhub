@@ -33,7 +33,7 @@ export default function ArcadePage() {
   const [achievementsFor, setAchievementsFor] = useState<Game | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [configuring, setConfiguring] = useState<Game | null>(null);
-  const [toast, setToast] = useState("");
+  const [popup, setPopup] = useState<{ coins: number; achievements: Achievement[] } | null>(null);
   const [uploadName, setUploadName] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -65,12 +65,7 @@ export default function ArcadePage() {
       })
         .then((r) => r.json())
         .then((data) => {
-          let msg = data.coinsAwarded > 0 ? `+${data.coinsAwarded} coins!` : "Game over";
-          if (data.newAchievements?.length) {
-            msg += ` 🏆 ${data.newAchievements.map((a: any) => a.name).join(", ")} unlocked!`;
-          }
-          setToast(msg);
-          setTimeout(() => setToast(""), 4000);
+          setPopup({ coins: data.coinsAwarded ?? 0, achievements: data.newAchievements ?? [] });
         });
     }
     window.addEventListener("message", onMessage);
@@ -214,9 +209,32 @@ export default function ArcadePage() {
             sandbox="allow-scripts allow-pointer-lock"
             className="flex-1 w-full rounded-lg border border-line bg-white"
           />
-          {toast && (
-            <div className="fixed bottom-6 right-6 bg-bg1 border border-violet rounded-lg px-4 py-3 text-sm shadow-lg">
-              {toast}
+          {popup && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60]" onClick={() => setPopup(null)}>
+              <div className="bg-bg1 border border-violet rounded-xl p-6 w-[340px] text-center" onClick={(e) => e.stopPropagation()}>
+                <h3 className="font-display text-lg font-bold mb-3">Game Over</h3>
+                {popup.coins > 0 ? (
+                  <div className="text-2xl text-gold font-bold mb-3">+{popup.coins} coins</div>
+                ) : (
+                  <div className="text-sm text-txt2 mb-3">No coins this round</div>
+                )}
+                {popup.achievements.length > 0 && (
+                  <div className="flex flex-col gap-2 mb-4">
+                    {popup.achievements.map((a) => (
+                      <div key={a.id} className="flex items-center gap-2 bg-gold/10 rounded-md px-3 py-2">
+                        <span className="text-xl">{a.icon}</span>
+                        <div className="text-left">
+                          <div className="text-sm font-semibold">{a.name} unlocked!</div>
+                          {a.description && <div className="text-[11px] text-txt2">{a.description}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button onClick={() => setPopup(null)} className="w-full bg-violet text-white rounded-md py-2 text-sm font-semibold">
+                  Nice!
+                </button>
+              </div>
             </div>
           )}
         </div>

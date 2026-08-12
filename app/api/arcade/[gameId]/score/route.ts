@@ -17,7 +17,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ gameId:
     .maybeSingle();
   if (!game) return NextResponse.json({ error: "Game not found" }, { status: 404 });
 
-  // Cooldown: ignore a submission that arrives too soon after the last one.
+  // Achievements are always evaluated on every completed play, regardless of
+  // cooldown — cooldown only limits how often COINS can be farmed, it should
+  // never block recognizing that a player actually reached a milestone.
+  const { data: achievements } = await supabaseAdmin
+    .from("game_achievements")
+    .select("id, name, description, icon, threshold_score")
+    .eq("game_id", gameId)
+    .lte("threshold_score", numScore);
+
+  const newAchievements: any[] = [];
+  for (const a of achievements ?? []) {
+    const { data: already } = await supabaseAdmin
+      .from("user_achievements")
+      .select("*")
+      .eq("account_name", session.accountName)
+      .eq("achievement_id", a.id)
+      .maybeSingle();
+    if (!already) {
+      await supabaseAdmin
+        .from("user_achievements")
+        .insert({ account_name: session.accountName, achievement_id: a.id });
+      newAchievements.push(a);
+    }
+  }
+
+  // Cooldown: skip coin payout for a submission arriving too soon after the
+  // last one (still counted the achievements above, just no coins here).
   const { data: lastLog } = await supabaseAdmin
     .from("arcade_score_log")
     .select("created_at")
@@ -29,7 +55,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ gameId:
   if (lastLog) {
     const secondsSince = (Date.now() - new Date(lastLog.created_at).getTime()) / 1000;
     if (secondsSince < game.cooldown_seconds) {
-      return NextResponse.json({ ok: true, coinsAwarded: 0, reason: "cooldown", newAchievements: [] });
+      return NextResponse.json({ ok: true, coinsAwarded: 0, reason: "cooldown", newAchievements });
     }
   }
 
@@ -66,29 +92,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ gameId:
         .from("users")
         .update({ credits: user.credits + coinsAwarded })
         .eq("account_name", session.accountName);
-    }
-  }
-
-  // Unlock any achievements this score newly qualifies for.
-  const { data: achievements } = await supabaseAdmin
-    .from("game_achievements")
-    .select("id, name, description, icon, threshold_score")
-    .eq("game_id", gameId)
-    .lte("threshold_score", numScore);
-
-  const newAchievements: any[] = [];
-  for (const a of achievements ?? []) {
-    const { data: already } = await supabaseAdmin
-      .from("user_achievements")
-      .select("*")
-      .eq("account_name", session.accountName)
-      .eq("achievement_id", a.id)
-      .maybeSingle();
-    if (!already) {
-      await supabaseAdmin
-        .from("user_achievements")
-        .insert({ account_name: session.accountName, achievement_id: a.id });
-      newAchievements.push(a);
     }
   }
 
