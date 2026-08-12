@@ -26,6 +26,7 @@ export async function POST(req: Request) {
   const form = await req.formData();
   const name = String(form.get("name") ?? "").trim();
   const description = String(form.get("description") ?? "").trim();
+  const price = form.get("price") ? Math.max(0, parseInt(String(form.get("price")), 10) || 0) : 0;
   const file = form.get("file") as File | null;
 
   if (!name) return NextResponse.json({ error: "Game name required" }, { status: 400 });
@@ -80,8 +81,9 @@ export async function POST(req: Request) {
     }
   }
 
-  // Admin-submitted games skip review and go live immediately at no charge
-  // unless they set a price afterward from the Admin > Store tab.
+  // Admins can set the price immediately since their submissions skip review.
+  // Non-admin submissions always start at 0 — the reviewing admin sets the
+  // real price when approving, regardless of anything sent here.
   const { data: game, error } = await supabaseAdmin
     .from("store_games")
     .insert({
@@ -91,6 +93,7 @@ export async function POST(req: Request) {
       storage_path: storagePath,
       submitted_by: session.accountName,
       status: session.isAdmin ? "approved" : "pending",
+      price: session.isAdmin ? price : 0,
     })
     .select()
     .single();

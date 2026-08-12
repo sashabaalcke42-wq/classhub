@@ -7,21 +7,25 @@ type Game = { id: string; name: string; description: string | null; price: numbe
 export default function StorePage() {
   const [games, setGames] = useState<Game[]>([]);
   const [credits, setCredits] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [showSubmit, setShowSubmit] = useState(false);
   const [subName, setSubName] = useState("");
   const [subDesc, setSubDesc] = useState("");
+  const [subPrice, setSubPrice] = useState("0");
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
-    const [g, p] = await Promise.all([
+    const [g, p, me] = await Promise.all([
       fetch("/api/store").then((r) => r.json()),
       fetch("/api/profile").then((r) => r.json()),
+      fetch("/api/auth/me").then((r) => r.json()),
     ]);
     setGames(g);
     setCredits(p.credits);
+    setIsAdmin(!!me.isAdmin);
   }
   useEffect(() => {
     load();
@@ -50,6 +54,7 @@ export default function StorePage() {
     const form = new FormData();
     form.append("name", subName.trim());
     form.append("description", subDesc.trim());
+    if (isAdmin) form.append("price", subPrice);
     form.append("file", file);
     setUploading(true);
     const res = await fetch("/api/store/submit", { method: "POST", body: form });
@@ -60,8 +65,9 @@ export default function StorePage() {
       setShowSubmit(false);
       setSubName("");
       setSubDesc("");
+      setSubPrice("0");
       if (fileRef.current) fileRef.current.value = "";
-      setMsg("Submitted for review! You'll see it in the Store once an admin approves it.");
+      setMsg(isAdmin ? "Published to the Store!" : "Submitted for review! You'll see it in the Store once an admin approves it.");
       load();
     }
   }
@@ -72,7 +78,7 @@ export default function StorePage() {
         <h2 className="font-display text-lg font-bold">Store</h2>
         <span className="text-xs text-gold ml-2">{credits} coins</span>
         <button onClick={() => setShowSubmit(true)} className="ml-auto bg-bg3 border border-line rounded-md px-3.5 py-1.5 text-sm">
-          Submit a game
+          {isAdmin ? "+ Add game" : "Submit a game"}
         </button>
       </div>
 
@@ -105,16 +111,26 @@ export default function StorePage() {
       {showSubmit && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setShowSubmit(false)}>
           <form onSubmit={submit} className="bg-bg1 border border-line rounded-xl p-6 w-[380px]">
-            <h3 className="font-display text-lg font-bold mb-4">Submit a game</h3>
+            <h3 className="font-display text-lg font-bold mb-4">{isAdmin ? "Add a game" : "Submit a game"}</h3>
             <input value={subName} onChange={(e) => setSubName(e.target.value)} placeholder="Game name"
               className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-3" />
             <textarea value={subDesc} onChange={(e) => setSubDesc(e.target.value)} placeholder="Short description" rows={2}
               className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-3 resize-none" />
+            {isAdmin && (
+              <div className="mb-3">
+                <label className="block text-[11px] uppercase tracking-wide text-txt2 mb-1">Price in coins (0 = free)</label>
+                <input type="number" min={0} value={subPrice} onChange={(e) => setSubPrice(e.target.value)}
+                  className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm" />
+              </div>
+            )}
             <input ref={fileRef} type="file" accept=".zip" className="w-full text-sm mb-1" />
-            <div className="text-[11px] text-txt2 mb-4">Zip needs an index.html at its root. An admin will review it before it appears in the Store.</div>
+            <div className="text-[11px] text-txt2 mb-4">
+              Zip needs an index.html at its root.{" "}
+              {isAdmin ? "As an admin, this publishes immediately." : "An admin will review it before it appears in the Store."}
+            </div>
             <div className="flex gap-2">
               <button type="submit" disabled={uploading} className="flex-1 bg-violet text-white rounded-md py-2 text-sm font-semibold">
-                {uploading ? "Uploading..." : "Submit for review"}
+                {uploading ? "Uploading..." : isAdmin ? "Publish" : "Submit for review"}
               </button>
               <button type="button" onClick={() => setShowSubmit(false)} className="bg-bg2 border border-line rounded-md px-4 text-sm">Cancel</button>
             </div>
