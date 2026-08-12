@@ -32,6 +32,7 @@ export async function POST(req: Request) {
 
   const { responseId, isCorrect } = await req.json();
   const REWARD_PER_CORRECT = 10;
+  const newValue = !!isCorrect;
 
   const { data: existing } = await supabaseAdmin
     .from("quiz_responses")
@@ -41,14 +42,18 @@ export async function POST(req: Request) {
 
   const { error } = await supabaseAdmin
     .from("quiz_responses")
-    .update({ is_correct: !!isCorrect, graded_by: session.accountName, graded_at: new Date().toISOString() })
+    .update({ is_correct: newValue, graded_by: session.accountName, graded_at: new Date().toISOString() })
     .eq("id", responseId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Only pay out the first time a response transitions into "correct" —
-  // re-grading the same response never double-pays.
-  const wasUngraded = existing?.is_correct === null;
-  if (isCorrect && wasUngraded) {
+  // Adjust coins based on the grade transition: pay out when it newly
+  // becomes correct, claw back if a previously-correct grade is reversed.
+  const wasCorrect = existing?.is_correct === true;
+  let delta = 0;
+  if (newValue && !wasCorrect) delta = REWARD_PER_CORRECT;
+  else if (!newValue && wasCorrect) delta = -REWARD_PER_CORRECT;
+
+  if (delta !== 0) {
     const accountName = (existing?.quiz_attempts as any)?.account_name;
     if (accountName) {
       const { data: user } = await supabaseAdmin
@@ -59,7 +64,7 @@ export async function POST(req: Request) {
       if (user) {
         await supabaseAdmin
           .from("users")
-          .update({ credits: user.credits + REWARD_PER_CORRECT })
+          .update({ credits: Math.max(0, user.credits + delta) })
           .eq("account_name", accountName);
       }
     }

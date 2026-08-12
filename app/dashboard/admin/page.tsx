@@ -43,8 +43,16 @@ export default function AdminPage() {
     setQuizzes(await fetch("/api/admin/quizzes").then((r) => r.json()));
   }
   async function deleteQuiz(id: string) {
-    if (!confirm("Delete this quiz and all attempts?")) return;
+    if (!confirm("Permanently delete this quiz? This also removes it from the leaderboard.")) return;
     await fetch(`/api/admin/quizzes/${id}`, { method: "DELETE" });
+    loadQuizzes();
+  }
+  async function toggleArchive(id: string, archived: boolean) {
+    await fetch(`/api/admin/quizzes/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived }),
+    });
     loadQuizzes();
   }
   async function openGrading(quizId: string) {
@@ -299,14 +307,17 @@ export default function AdminPage() {
                   <div key={r.id} className="bg-bg2 border border-line rounded-lg p-3 mb-2">
                     <div className="text-xs text-txt2 mb-1">{r.quiz_attempts.account_name} — {r.quiz_questions.question_text}</div>
                     <div className="text-sm mb-2">{r.answer_text || "(blank)"}</div>
-                    {r.is_correct === null ? (
-                      <div className="flex gap-2">
-                        <button onClick={() => grade(r.id, true)} className="bg-online/15 text-online rounded px-3 py-1 text-xs">Mark correct</button>
-                        <button onClick={() => grade(r.id, false)} className="bg-danger/15 text-danger rounded px-3 py-1 text-xs">Mark incorrect</button>
-                      </div>
-                    ) : (
-                      <span className={`text-xs ${r.is_correct ? "text-online" : "text-danger"}`}>{r.is_correct ? "Marked correct" : "Marked incorrect"}</span>
-                    )}
+                    <div className="flex gap-2 items-center">
+                      <button onClick={() => grade(r.id, true)}
+                        className={`rounded px-3 py-1 text-xs ${r.is_correct === true ? "bg-online text-bg0 font-semibold" : "bg-online/15 text-online"}`}>
+                        Mark correct
+                      </button>
+                      <button onClick={() => grade(r.id, false)}
+                        className={`rounded px-3 py-1 text-xs ${r.is_correct === false ? "bg-danger text-white font-semibold" : "bg-danger/15 text-danger"}`}>
+                        Mark incorrect
+                      </button>
+                      {r.is_correct === null && <span className="text-[11px] text-txt2">Ungraded</span>}
+                    </div>
                   </div>
                 ))
               }
@@ -322,6 +333,7 @@ export default function AdminPage() {
                     <tr className="text-left text-txt2 text-[11px] uppercase tracking-wide border-b border-line">
                       <th className="py-2 px-2">Title</th>
                       <th className="py-2 px-2">Questions</th>
+                      <th className="py-2 px-2">Status</th>
                       <th className="py-2 px-2">Actions</th>
                     </tr>
                   </thead>
@@ -331,7 +343,13 @@ export default function AdminPage() {
                         <td className="py-2 px-2">{q.title}</td>
                         <td className="py-2 px-2">{q.questionCount}</td>
                         <td className="py-2 px-2">
+                          {q.deleted_at ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-bg3 text-txt2">Archived</span> : <span className="text-online text-xs">Active</span>}
+                        </td>
+                        <td className="py-2 px-2 whitespace-nowrap">
                           <button onClick={() => openGrading(q.id)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5">Grade written</button>
+                          <button onClick={() => toggleArchive(q.id, !q.deleted_at)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5">
+                            {q.deleted_at ? "Unarchive" : "Archive"}
+                          </button>
                           <button onClick={() => deleteQuiz(q.id)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs hover:text-danger">Delete</button>
                         </td>
                       </tr>
@@ -350,6 +368,8 @@ export default function AdminPage() {
 function NewQuizModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [releaseAt, setReleaseAt] = useState("");
+  const [endAt, setEndAt] = useState("");
   const [questions, setQuestions] = useState<any[]>([{ type: "true_false", questionText: "", correctAnswer: "true", options: [] }]);
   const [error, setError] = useState("");
 
@@ -369,7 +389,11 @@ function NewQuizModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     const res = await fetch("/api/admin/quizzes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, description, questions }),
+      body: JSON.stringify({
+        title, description, questions,
+        releaseAt: releaseAt ? new Date(releaseAt).toISOString() : null,
+        endAt: endAt ? new Date(endAt).toISOString() : null,
+      }),
     });
     const data = await res.json();
     if (!res.ok) setError(data.error);
@@ -385,7 +409,20 @@ function NewQuizModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Quiz title"
           className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-3 outline-none focus:border-violet" />
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" rows={2}
-          className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-4 outline-none focus:border-violet resize-none" />
+          className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-3 outline-none focus:border-violet resize-none" />
+
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div>
+            <label className="block text-[11px] uppercase tracking-wide text-txt2 mb-1">Release date (optional)</label>
+            <input type="datetime-local" value={releaseAt} onChange={(e) => setReleaseAt(e.target.value)}
+              className="w-full bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-[11px] uppercase tracking-wide text-txt2 mb-1">End date (optional)</label>
+            <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)}
+              className="w-full bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
+          </div>
+        </div>
 
         {questions.map((q, i) => (
           <div key={i} className="bg-bg2 border border-line rounded-lg p-3 mb-3">
