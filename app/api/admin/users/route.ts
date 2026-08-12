@@ -15,7 +15,7 @@ export async function GET() {
 
   const { data, error: dbErr } = await supabaseAdmin
     .from("users")
-    .select("account_name, display_name, is_admin, created_at")
+    .select("account_name, display_name, is_admin, credits, created_at")
     .order("created_at", { ascending: true });
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
   return NextResponse.json(data);
@@ -25,15 +25,20 @@ export async function PATCH(req: Request) {
   const { error, session } = await requireAdmin();
   if (error) return error;
 
-  const { accountName, isAdmin } = await req.json();
-  if (accountName === session!.accountName) {
-    return NextResponse.json({ error: "You can't change your own admin status" }, { status: 400 });
+  const { accountName, isAdmin, credits } = await req.json();
+  const updates: Record<string, any> = {};
+
+  if (isAdmin !== undefined) {
+    if (accountName === session!.accountName) {
+      return NextResponse.json({ error: "You can't change your own admin status" }, { status: 400 });
+    }
+    updates.is_admin = !!isAdmin;
+  }
+  if (credits !== undefined) {
+    updates.credits = Math.max(0, parseInt(credits, 10) || 0);
   }
 
-  const { error: dbErr } = await supabaseAdmin
-    .from("users")
-    .update({ is_admin: !!isAdmin })
-    .eq("account_name", accountName);
+  const { error: dbErr } = await supabaseAdmin.from("users").update(updates).eq("account_name", accountName);
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

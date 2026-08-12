@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type User = { account_name: string; display_name: string; is_admin: boolean; created_at: string };
+type User = { account_name: string; display_name: string; is_admin: boolean; credits: number; created_at: string };
 type Group = { id: string; name: string; created_by: string; memberCount: number };
 type DMConv = { key: string; accountA: string; accountB: string; messageCount: number };
 type Game = { id: string; name: string; added_by: string };
@@ -104,6 +104,16 @@ export default function AdminPage() {
     });
     loadUsers();
   }
+  async function editCoins(accountName: string, current: number) {
+    const input = prompt(`Set coin balance for ${accountName}:`, String(current));
+    if (input === null) return;
+    await fetch("/api/admin/users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountName, credits: input }),
+    });
+    loadUsers();
+  }
   async function deleteUser(accountName: string) {
     if (!confirm(`Delete account "${accountName}"? This cannot be undone.`)) return;
     const res = await fetch("/api/admin/users", {
@@ -164,6 +174,7 @@ export default function AdminPage() {
                 <th className="py-2 px-2">Display name</th>
                 <th className="py-2 px-2 font-mono">Account</th>
                 <th className="py-2 px-2">Role</th>
+                <th className="py-2 px-2">Coins</th>
                 <th className="py-2 px-2">Actions</th>
               </tr>
             </thead>
@@ -177,9 +188,16 @@ export default function AdminPage() {
                       {u.is_admin ? "admin" : "member"}
                     </span>
                   </td>
+                  <td className="py-2 px-2 text-gold">{u.credits ?? 0}</td>
                   <td className="py-2 px-2">
                     {u.account_name !== me ? (
                       <>
+                        <button
+                          onClick={() => editCoins(u.account_name, u.credits ?? 0)}
+                          className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5"
+                        >
+                          Edit coins
+                        </button>
                         <button
                           onClick={() => toggleAdmin(u.account_name, u.is_admin)}
                           className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5"

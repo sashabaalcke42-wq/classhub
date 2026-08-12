@@ -16,6 +16,7 @@ export default function DirectoryPage() {
     friends: [], outgoing: [], requests: [], blocked: [],
   });
   const [busy, setBusy] = useState<string | null>(null);
+  const [viewingBio, setViewingBio] = useState<any | null>(null);
 
   async function load() {
     const [p, f] = await Promise.all([
@@ -49,6 +50,11 @@ export default function DirectoryPage() {
     return "none";
   }
 
+  async function viewProfile(acc: string) {
+    const res = await fetch(`/api/users/${acc}`);
+    if (res.ok) setViewingBio(await res.json());
+  }
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] gap-3 bg-bg1">
@@ -78,10 +84,10 @@ export default function DirectoryPage() {
             const url = avatarUrl(p.avatar_path);
             return (
               <div key={p.account_name} className="flex items-center gap-3 px-2 py-2 rounded-md hover:bg-bg2">
-                <div className="w-9 h-9 rounded-full bg-bg3 overflow-hidden flex items-center justify-center text-xs font-bold flex-shrink-0">
+                <div onClick={() => viewProfile(p.account_name)} className="w-9 h-9 rounded-full bg-bg3 overflow-hidden flex items-center justify-center text-xs font-bold flex-shrink-0 cursor-pointer">
                   {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : p.display_name.slice(0, 2).toUpperCase()}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div onClick={() => viewProfile(p.account_name)} className="flex-1 min-w-0 cursor-pointer">
                   <div className="text-sm font-medium">{p.display_name}</div>
                   <div className="text-[11px] text-txt2 font-mono">{p.account_name} · {p.credits} coins</div>
                 </div>
@@ -104,6 +110,27 @@ export default function DirectoryPage() {
           {people.length === 0 && <div className="text-center text-txt2 mt-10">No users found</div>}
         </div>
       </div>
+
+      {viewingBio && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setViewingBio(null)}>
+          <div className="bg-bg1 border border-line rounded-xl p-6 w-[360px]">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-14 h-14 rounded-full bg-bg3 overflow-hidden flex items-center justify-center text-lg font-bold">
+                {viewingBio.avatar_path ? (
+                  <img src={avatarUrl(viewingBio.avatar_path) ?? ""} alt="" className="w-full h-full object-cover" />
+                ) : viewingBio.display_name.slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div className="font-semibold">{viewingBio.display_name}</div>
+                <div className="text-xs text-txt2 font-mono">{viewingBio.account_name}</div>
+              </div>
+            </div>
+            <div className="text-sm text-txt1 mb-3">{viewingBio.bio || <span className="text-txt2">No bio yet</span>}</div>
+            <div className="text-[11px] text-txt2">Joined {new Date(viewingBio.created_at).toLocaleDateString()}</div>
+            <button onClick={() => setViewingBio(null)} className="mt-4 w-full bg-bg2 border border-line rounded-md py-2 text-sm">Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

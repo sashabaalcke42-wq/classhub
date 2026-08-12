@@ -8,7 +8,11 @@ type Game = {
   storage_path: string;
   added_by: string;
   created_at: string;
+  reward_rate?: number;
+  daily_limit?: number;
+  cooldown_seconds?: number;
 };
+type Achievement = { id: string; name: string; description: string | null; icon: string; threshold_score: number; unlocked?: boolean };
 
 function colorFor(seed: string) {
   const colors = ["#7c5cfc", "#00d9c0", "#ffb454", "#ff5470", "#4dabf7", "#e599f7"];
@@ -17,10 +21,8 @@ function colorFor(seed: string) {
   return colors[h % colors.length];
 }
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-
 function playUrl(g: Game) {
-  return `${SUPABASE_URL}/storage/v1/object/public/games/${g.storage_path}/index.html`;
+  return `/games/${g.id}/index.html`;
 }
 
 export default function ArcadePage() {
@@ -28,6 +30,10 @@ export default function ArcadePage() {
   const [me, setMe] = useState<{ isAdmin: boolean } | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [playing, setPlaying] = useState<Game | null>(null);
+  const [achievementsFor, setAchievementsFor] = useState<Game | null>(null);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [configuring, setConfiguring] = useState<Game | null>(null);
+  const [toast, setToast] = useState("");
   const [uploadName, setUploadName] = useState("");
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -41,10 +47,35 @@ export default function ArcadePage() {
     setGames(g);
     setMe(s);
   }
-
   useEffect(() => {
     load();
   }, []);
+
+  // Listen for score reports from any playing game's iframe. Games call:
+  //   window.parent.postMessage({ channel: 'classhub-arcade', type: 'game-over', score: N }, window.location.origin)
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if (!playing || e.data?.channel !== "classhub-arcade" || e.data?.type !== "game-over") return;
+
+      fetch(`/api/arcade/${playing.id}/score`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ score: e.data.score }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          let msg = data.coinsAwarded > 0 ? `+${data.coinsAwarded} coins!` : "Game over";
+          if (data.newAchievements?.length) {
+            msg += ` 🏆 ${data.newAchievements.map((a: any) => a.name).join(", ")} unlocked!`;
+          }
+          setToast(msg);
+          setTimeout(() => setToast(""), 4000);
+        });
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [playing]);
 
   async function upload(e: React.FormEvent) {
     e.preventDefault();
@@ -77,6 +108,11 @@ export default function ArcadePage() {
     load();
   }
 
+  async function openAchievements(g: Game) {
+    setAchievementsFor(g);
+    setAchievements(await fetch(`/api/arcade/${g.id}/achievements`).then((r) => r.json()));
+  }
+
   const admin = me?.isAdmin;
 
   return (
@@ -104,29 +140,25 @@ export default function ArcadePage() {
             {games.map((g) => (
               <div
                 key={g.id}
-                className="bg-bg2 border border-line rounded-xl overflow-hidden cursor-pointer hover:border-violet hover:-translate-y-0.5 transition-all"
+                className="bg-bg2 border border-line rounded-xl overflow-hidden hover:border-violet hover:-translate-y-0.5 transition-all"
               >
                 <div
                   onClick={() => setPlaying(g)}
-                  className="h-[100px] flex items-center justify-center text-3xl"
+                  className="h-[100px] flex items-center justify-center text-3xl cursor-pointer"
                   style={{ background: `linear-gradient(135deg, ${colorFor(g.name)}, #12141d)` }}
                 >
                   🎮
                 </div>
                 <div className="p-3">
                   <div className="font-semibold text-sm mb-0.5">{g.name}</div>
-                  <div className="text-[11px] text-txt2 flex items-center justify-between">
-                    <span>added by {g.added_by}</span>
+                  <div className="text-[11px] text-txt2 mb-2">added by {g.added_by}</div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => openAchievements(g)} className="text-[11px] text-gold">🏆 Achievements</button>
                     {admin && (
-                      <button
-                        className="text-txt2 hover:text-danger"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          remove(g.id);
-                        }}
-                      >
-                        remove
-                      </button>
+                      <>
+                        <button onClick={() => setConfiguring(g)} className="text-[11px] text-txt2 hover:text-txt0 ml-auto">Configure</button>
+                        <button onClick={() => remove(g.id)} className="text-[11px] text-txt2 hover:text-danger">Remove</button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -182,8 +214,125 @@ export default function ArcadePage() {
             sandbox="allow-scripts allow-pointer-lock"
             className="flex-1 w-full rounded-lg border border-line bg-white"
           />
+          {toast && (
+            <div className="fixed bottom-6 right-6 bg-bg1 border border-violet rounded-lg px-4 py-3 text-sm shadow-lg">
+              {toast}
+            </div>
+          )}
         </div>
       )}
+
+      {achievementsFor && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setAchievementsFor(null)}>
+          <div className="bg-bg1 border border-line rounded-xl p-6 w-[380px]">
+            <h3 className="font-display text-lg font-bold mb-4">{achievementsFor.name} — Achievements</h3>
+            {achievements.length === 0 ? (
+              <div className="text-sm text-txt2">No achievements set for this game yet.</div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {achievements.map((a) => (
+                  <div key={a.id} className={`flex items-center gap-3 p-2 rounded-md ${a.unlocked ? "bg-gold/10" : "bg-bg2 opacity-50"}`}>
+                    <span className="text-xl">{a.unlocked ? a.icon : "🔒"}</span>
+                    <div>
+                      <div className="text-sm font-medium">{a.name}</div>
+                      <div className="text-[11px] text-txt2">{a.description || `Reach ${a.threshold_score} points`}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button onClick={() => setAchievementsFor(null)} className="mt-4 bg-bg2 border border-line rounded-md px-4 py-2 text-sm w-full">Close</button>
+          </div>
+        </div>
+      )}
+
+      {configuring && (
+        <ConfigureGameModal game={configuring} onClose={() => setConfiguring(null)} />
+      )}
+    </div>
+  );
+}
+
+function ConfigureGameModal({ game, onClose }: { game: Game; onClose: () => void }) {
+  const [rewardRate, setRewardRate] = useState(String(game.reward_rate ?? 1));
+  const [dailyLimit, setDailyLimit] = useState(String(game.daily_limit ?? 200));
+  const [cooldown, setCooldown] = useState(String(game.cooldown_seconds ?? 5));
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [newName, setNewName] = useState("");
+  const [newThreshold, setNewThreshold] = useState("");
+  const [newIcon, setNewIcon] = useState("🏆");
+
+  async function loadAch() {
+    setAchievements(await fetch(`/api/admin/games/${game.id}/achievements`).then((r) => r.json()));
+  }
+  useEffect(() => {
+    loadAch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function saveConfig() {
+    await fetch(`/api/games/${game.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rewardRate, dailyLimit, cooldownSeconds: cooldown }),
+    });
+    onClose();
+  }
+
+  async function addAchievement() {
+    if (!newName.trim() || !newThreshold) return;
+    await fetch(`/api/admin/games/${game.id}/achievements`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName, thresholdScore: newThreshold, icon: newIcon }),
+    });
+    setNewName("");
+    setNewThreshold("");
+    loadAch();
+  }
+  async function removeAchievement(id: string) {
+    await fetch(`/api/admin/games/${game.id}/achievements/${id}`, { method: "DELETE" });
+    loadAch();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-bg1 border border-line rounded-xl p-6 w-[420px] max-h-[85vh] overflow-y-auto">
+        <h3 className="font-display text-lg font-bold mb-4">Configure "{game.name}"</h3>
+
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div>
+            <label className="block text-[11px] text-txt2 mb-1">Coins / point</label>
+            <input value={rewardRate} onChange={(e) => setRewardRate(e.target.value)} className="w-full bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-[11px] text-txt2 mb-1">Daily cap</label>
+            <input value={dailyLimit} onChange={(e) => setDailyLimit(e.target.value)} className="w-full bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-[11px] text-txt2 mb-1">Cooldown (s)</label>
+            <input value={cooldown} onChange={(e) => setCooldown(e.target.value)} className="w-full bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
+          </div>
+        </div>
+        <button onClick={saveConfig} className="w-full bg-violet text-white rounded-md py-2 text-sm font-semibold mb-5">Save reward settings</button>
+
+        <h4 className="text-xs uppercase tracking-wide text-txt2 mb-2">Achievements</h4>
+        {achievements.map((a) => (
+          <div key={a.id} className="flex items-center gap-2 bg-bg2 rounded-md px-2 py-1.5 mb-1.5">
+            <span>{a.icon}</span>
+            <span className="text-sm flex-1">{a.name} — {a.threshold_score} pts</span>
+            <button onClick={() => removeAchievement(a.id)} className="text-xs text-danger">✕</button>
+          </div>
+        ))}
+        <div className="flex gap-1.5 mt-2">
+          <input value={newIcon} onChange={(e) => setNewIcon(e.target.value)} className="w-10 bg-bg2 border border-line rounded-md px-1 py-1.5 text-sm text-center" />
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Achievement name" className="flex-1 bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
+          <input value={newThreshold} onChange={(e) => setNewThreshold(e.target.value)} placeholder="Score" type="number" className="w-16 bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
+          <button onClick={addAchievement} className="bg-bg3 border border-line rounded-md px-2 text-sm">+</button>
+        </div>
+
+        <button onClick={onClose} className="w-full bg-bg2 border border-line rounded-md py-2 text-sm mt-5">Close</button>
+      </div>
     </div>
   );
 }
