@@ -38,6 +38,7 @@ export default function ArcadePage() {
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const gameIframeRef = useRef<HTMLIFrameElement>(null);
 
   async function load() {
     const [g, s] = await Promise.all([
@@ -51,12 +52,18 @@ export default function ArcadePage() {
     load();
   }, []);
 
-  // Listen for score reports from any playing game's iframe. Games call:
+  // Listen for score reports from the playing game's iframe. Games call:
   //   window.parent.postMessage({ channel: 'classhub-arcade', type: 'game-over', score: N }, window.location.origin)
+  //
+  // Note: the game iframe is sandboxed WITHOUT allow-same-origin (on purpose,
+  // for security), which means its postMessage always reports origin "null"
+  // to us — so we can't check e.origin. Instead we verify the message came
+  // from this exact iframe by comparing e.source to its contentWindow.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
-      if (e.origin !== window.location.origin) return;
-      if (!playing || e.data?.channel !== "classhub-arcade" || e.data?.type !== "game-over") return;
+      if (!playing) return;
+      if (e.source !== gameIframeRef.current?.contentWindow) return;
+      if (e.data?.channel !== "classhub-arcade" || e.data?.type !== "game-over") return;
 
       fetch(`/api/arcade/${playing.id}/score`, {
         method: "POST",
@@ -205,6 +212,7 @@ export default function ArcadePage() {
             <h3 className="font-display text-lg font-bold">{playing.name}</h3>
           </div>
           <iframe
+            ref={gameIframeRef}
             src={playUrl(playing)}
             sandbox="allow-scripts allow-pointer-lock"
             className="flex-1 w-full rounded-lg border border-line bg-white"
