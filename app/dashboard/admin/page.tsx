@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [gradingQuiz, setGradingQuiz] = useState<string | null>(null);
   const [storeGames, setStoreGames] = useState<any[]>([]);
   const [editingStoreGame, setEditingStoreGame] = useState<any | null>(null);
+  const [previewingGame, setPreviewingGame] = useState<any | null>(null);
   const [viewingDM, setViewingDM] = useState<DMConv | null>(null);
   const [dmMsgs, setDmMsgs] = useState<DMMsg[]>([]);
   const [me, setMe] = useState<string>("");
@@ -427,6 +428,7 @@ export default function AdminPage() {
                     </td>
                     <td className="py-2 px-2">{g.price}</td>
                     <td className="py-2 px-2 whitespace-nowrap">
+                      <button onClick={() => setPreviewingGame(g)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5">Preview</button>
                       {g.status !== "approved" && (
                         <button onClick={() => setEditingStoreGame(g)} className="bg-online/15 text-online rounded px-2 py-1 text-xs mr-1.5">Approve</button>
                       )}
@@ -451,6 +453,20 @@ export default function AdminPage() {
           onClose={() => setEditingStoreGame(null)}
           onApproved={() => { setEditingStoreGame(null); loadStore(); }}
         />
+      )}
+
+      {previewingGame && (
+        <div className="fixed inset-0 bg-black/90 z-[70] flex flex-col p-6">
+          <div className="flex items-center gap-3 mb-3">
+            <button onClick={() => setPreviewingGame(null)} className="bg-bg2 border border-line rounded-md px-3 py-1.5 text-sm">← Close preview</button>
+            <h3 className="font-display text-lg font-bold">{previewingGame.name} (admin preview — unpublished submissions play safely here before approval)</h3>
+          </div>
+          <iframe
+            src={`/store-games/${previewingGame.id}/index.html`}
+            sandbox="allow-scripts allow-pointer-lock"
+            className="flex-1 w-full rounded-lg border border-line bg-white"
+          />
+        </div>
       )}
     </div>
   );

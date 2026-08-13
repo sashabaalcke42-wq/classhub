@@ -19,13 +19,26 @@ export async function POST(req: Request) {
   }
 
   const ext = file.type.split("/")[1];
-  const path = `${session.accountName}/avatar.${ext}`;
+  // Unique filename every upload — a fixed name here would mean the URL
+  // never changes, so browsers keep showing the old cached image forever
+  // even after the file on the server is replaced.
+  const path = `${session.accountName}/${Date.now()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const { error: upErr } = await supabaseAdmin.storage
     .from("avatars")
     .upload(path, buffer, { contentType: file.type, upsert: true });
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+
+  // Clean up any previous avatar file(s) for this account now that the new
+  // one is safely uploaded.
+  const { data: oldFiles } = await supabaseAdmin.storage.from("avatars").list(session.accountName);
+  if (oldFiles) {
+    const toRemove = oldFiles
+      .map((f) => `${session.accountName}/${f.name}`)
+      .filter((p) => p !== path);
+    if (toRemove.length) await supabaseAdmin.storage.from("avatars").remove(toRemove);
+  }
 
   const { error } = await supabaseAdmin
     .from("users")

@@ -30,7 +30,7 @@ export default function Rail({
 
   useEffect(() => {
     fetch("/api/groups").then((r) => r.json()).then(setGroups).catch(() => {});
-  }, []);
+  }, [pathname]);
 
   async function createGroup() {
     const name = prompt("Group name:");
