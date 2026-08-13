@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
+import { logActivity } from "@/lib/activityLog";
 
 async function requireAdmin() {
   const session = await getSession();
@@ -15,7 +16,7 @@ export async function GET() {
 
   const { data, error: dbErr } = await supabaseAdmin
     .from("users")
-    .select("account_name, display_name, is_admin, credits, created_at")
+    .select("account_name, display_name, is_admin, credits, banned_until, ban_reason, created_at")
     .order("created_at", { ascending: true });
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
   return NextResponse.json(data);
@@ -40,6 +41,10 @@ export async function PATCH(req: Request) {
 
   const { error: dbErr } = await supabaseAdmin.from("users").update(updates).eq("account_name", accountName);
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
+
+  if (isAdmin !== undefined) await logActivity(session!.accountName, isAdmin ? "make_admin" : "revoke_admin", accountName, null);
+  if (credits !== undefined) await logActivity(session!.accountName, "coins_changed", accountName, `set to ${updates.credits}`);
+
   return NextResponse.json({ ok: true });
 }
 
@@ -54,5 +59,7 @@ export async function DELETE(req: Request) {
 
   const { error: dbErr } = await supabaseAdmin.from("users").delete().eq("account_name", accountName);
   if (dbErr) return NextResponse.json({ error: dbErr.message }, { status: 500 });
+
+  await logActivity(session!.accountName, "delete_account", accountName, null);
   return NextResponse.json({ ok: true });
 }

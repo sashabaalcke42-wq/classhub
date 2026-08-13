@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { supabaseAdmin } from "./supabaseAdmin";
 
 const secret = new TextEncoder().encode(process.env.SESSION_SECRET!);
 const COOKIE_NAME = "classhub_session";
@@ -10,8 +11,16 @@ export type SessionPayload = {
   isAdmin: boolean;
 };
 
+type TokenPayload = SessionPayload & { sessionVersion: number };
+
 export async function createSession(payload: SessionPayload) {
-  const token = await new SignJWT({ ...payload })
+  const { data: user } = await supabaseAdmin
+    .from("users")
+    .select("session_version")
+    .eq("account_name", payload.accountName)
+    .maybeSingle();
+
+  const token = await new SignJWT({ ...payload, sessionVersion: user?.session_version ?? 0 })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("30d")
@@ -33,7 +42,23 @@ export async function getSession(): Promise<SessionPayload | null> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as SessionPayload;
+    const claims = payload as unknown as TokenPayload;
+
+    // Check ban status and force-logout (session_version bump) on every
+    // request. A stale/banned session is treated as logged out, though the
+    // cookie itself isn't cleared here — Next.js doesn't allow mutating
+    // cookies from a Server Component render, only from Route Handlers.
+    const { data: user } = await supabaseAdmin
+      .from("users")
+      .select("session_version, banned_until")
+      .eq("account_name", claims.accountName)
+      .maybeSingle();
+
+    if (!user) return null;
+    if (user.session_version !== claims.sessionVersion) return null;
+    if (user.banned_until && new Date(user.banned_until) > new Date()) return null;
+
+    return { accountName: claims.accountName, displayName: claims.displayName, isAdmin: claims.isAdmin };
   } catch {
     return null;
   }

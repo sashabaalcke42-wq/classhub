@@ -37,6 +37,8 @@ export default function ChatRoom({
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const query = scope === "global" ? "scope=global" : `scope=group&groupId=${groupId}`;
@@ -78,12 +80,15 @@ export default function ChatRoom({
     const text = input.trim();
     if (!text) return;
     setInput("");
-    await fetch("/api/messages", {
+    const res = await fetch("/api/messages", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ scope, groupId, body: text }),
     });
-    load();
+    if (res.ok) {
+      const newMsg: Msg = await res.json();
+      setMessages((prev) => [...prev, newMsg]);
+    }
   }
 
   async function remove(id: string) {
@@ -91,12 +96,51 @@ export default function ChatRoom({
     load();
   }
 
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} selected message${selected.size > 1 ? "s" : ""}?`)) return;
+    await fetch("/api/admin/messages/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: Array.from(selected) }),
+    });
+    setSelected(new Set());
+    setSelectMode(false);
+    load();
+  }
+
   return (
     <div className="flex-1 flex flex-col min-w-0">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] gap-2.5 bg-bg1">
         <h2 className="font-display text-lg font-bold">{title}</h2>
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-txt2">
-          <span className="w-[7px] h-[7px] rounded-full bg-online animate-pulse" /> live
+        <div className="ml-auto flex items-center gap-3">
+          {me.isAdmin && (
+            <>
+              {selectMode && selected.size > 0 && (
+                <button onClick={deleteSelected} className="bg-danger text-white rounded-md px-3 py-1.5 text-xs font-semibold">
+                  Delete {selected.size} selected
+                </button>
+              )}
+              <button
+                onClick={() => { setSelectMode((s) => !s); setSelected(new Set()); }}
+                className={`text-xs px-3 py-1.5 rounded-md border ${selectMode ? "bg-violet text-white border-violet" : "bg-bg2 border-line text-txt1"}`}
+              >
+                {selectMode ? "Cancel" : "Select"}
+              </button>
+            </>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-txt2">
+            <span className="w-[7px] h-[7px] rounded-full bg-online animate-pulse" /> live
+          </div>
         </div>
       </div>
 
@@ -110,7 +154,15 @@ export default function ChatRoom({
           messages.map((m) => {
             const canDelete = me.isAdmin || m.from_account === me.accountName;
             return (
-              <div key={m.id} className="flex gap-2.5 px-1 py-1.5 rounded-md hover:bg-bg1 group">
+              <div key={m.id} className={`flex gap-2.5 px-1 py-1.5 rounded-md hover:bg-bg1 group ${selectMode && selected.has(m.id) ? "bg-violet/10" : ""}`}>
+                {selectMode && (
+                  <input
+                    type="checkbox"
+                    checked={selected.has(m.id)}
+                    onChange={() => toggleSelected(m.id)}
+                    className="mt-2 flex-shrink-0"
+                  />
+                )}
                 <div
                   className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                   style={{ background: colorFor(m.from_account) + "22", color: colorFor(m.from_account) }}

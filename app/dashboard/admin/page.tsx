@@ -2,14 +2,15 @@
 
 import { useEffect, useState } from "react";
 
-type User = { account_name: string; display_name: string; is_admin: boolean; credits: number; created_at: string };
+type User = { account_name: string; display_name: string; is_admin: boolean; credits: number; banned_until: string | null; ban_reason: string | null; created_at: string };
 type Group = { id: string; name: string; created_by: string; memberCount: number };
 type DMConv = { key: string; accountA: string; accountB: string; messageCount: number };
 type Game = { id: string; name: string; added_by: string };
 type DMMsg = { id: string; display_name: string; body: string; created_at: string };
+type LogEntry = { id: string; actor: string; action: string; target: string | null; detail: string | null; created_at: string };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games" | "quizzes" | "store">("users");
+  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games" | "quizzes" | "store" | "logs">("users");
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [dms, setDms] = useState<DMConv[]>([]);
@@ -21,6 +22,7 @@ export default function AdminPage() {
   const [storeGames, setStoreGames] = useState<any[]>([]);
   const [editingStoreGame, setEditingStoreGame] = useState<any | null>(null);
   const [previewingGame, setPreviewingGame] = useState<any | null>(null);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewingDM, setViewingDM] = useState<DMConv | null>(null);
   const [dmMsgs, setDmMsgs] = useState<DMMsg[]>([]);
   const [me, setMe] = useState<string>("");
@@ -94,6 +96,7 @@ export default function AdminPage() {
     if (tab === "games") loadGames();
     if (tab === "quizzes") loadQuizzes();
     if (tab === "store") loadStore();
+    if (tab === "logs") loadLogs();
     setViewingDM(null);
   }, [tab]);
 
@@ -127,6 +130,47 @@ export default function AdminPage() {
       alert("Delete failed: " + (data.error ?? "Unknown error"));
     }
     loadUsers();
+  }
+  async function resetPassword(accountName: string) {
+    if (!confirm(`Reset ${accountName}'s password to a random temporary one?`)) return;
+    const res = await fetch("/api/admin/users/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountName }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert("Failed: " + data.error);
+    else alert(`Temporary password for ${accountName}:\n\n${data.tempPassword}\n\nGive this to them — they should change it from their Profile page after logging in.`);
+  }
+  async function banUser(accountName: string) {
+    const hoursInput = prompt(`Ban ${accountName} for how many hours? (0 = permanent)`, "24");
+    if (hoursInput === null) return;
+    const reason = prompt("Reason (optional):", "") ?? "";
+    await fetch("/api/admin/users/ban", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountName, hours: parseInt(hoursInput, 10) || 0, reason }),
+    });
+    loadUsers();
+  }
+  async function unbanUser(accountName: string) {
+    await fetch("/api/admin/users/unban", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountName }),
+    });
+    loadUsers();
+  }
+  async function forceLogout(accountName: string) {
+    if (!confirm(`Force ${accountName} to log out everywhere?`)) return;
+    await fetch("/api/admin/users/force-logout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountName }),
+    });
+  }
+  async function loadLogs() {
+    setLogs(await fetch("/api/admin/logs").then((r) => r.json()));
   }
   async function deleteGroup(id: string) {
     if (!confirm("Delete this group and all its messages?")) return;
@@ -165,6 +209,7 @@ export default function AdminPage() {
         {tabBtn("games", "Games")}
         {tabBtn("quizzes", "Quizzes")}
         {tabBtn("store", "Store")}
+        {tabBtn("logs", "Logs")}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -176,11 +221,14 @@ export default function AdminPage() {
                 <th className="py-2 px-2 font-mono">Account</th>
                 <th className="py-2 px-2">Role</th>
                 <th className="py-2 px-2">Coins</th>
+                <th className="py-2 px-2">Status</th>
                 <th className="py-2 px-2">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => (
+              {users.map((u) => {
+                const isBanned = u.banned_until && new Date(u.banned_until) > new Date();
+                return (
                 <tr key={u.account_name} className="border-b border-line text-txt1">
                   <td className="py-2 px-2">{u.display_name}</td>
                   <td className="py-2 px-2 font-mono">{u.account_name}</td>
@@ -191,24 +239,39 @@ export default function AdminPage() {
                   </td>
                   <td className="py-2 px-2 text-gold">{u.credits ?? 0}</td>
                   <td className="py-2 px-2">
+                    {isBanned ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-danger/15 text-danger" title={u.ban_reason ?? ""}>
+                        banned{new Date(u.banned_until!).getFullYear() > 2900 ? "" : " until " + new Date(u.banned_until!).toLocaleDateString()}
+                      </span>
+                    ) : (
+                      <span className="text-online text-xs">active</span>
+                    )}
+                  </td>
+                  <td className="py-2 px-2 whitespace-nowrap">
                     {u.account_name !== me ? (
                       <>
-                        <button
-                          onClick={() => editCoins(u.account_name, u.credits ?? 0)}
-                          className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5"
-                        >
+                        <button onClick={() => editCoins(u.account_name, u.credits ?? 0)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5 mb-1">
                           Edit coins
                         </button>
-                        <button
-                          onClick={() => toggleAdmin(u.account_name, u.is_admin)}
-                          className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5"
-                        >
+                        <button onClick={() => toggleAdmin(u.account_name, u.is_admin)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5 mb-1">
                           {u.is_admin ? "Revoke admin" : "Make admin"}
                         </button>
-                        <button
-                          onClick={() => deleteUser(u.account_name)}
-                          className="bg-bg3 border border-line rounded px-2 py-1 text-xs hover:text-danger"
-                        >
+                        <button onClick={() => resetPassword(u.account_name)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5 mb-1">
+                          Reset password
+                        </button>
+                        <button onClick={() => forceLogout(u.account_name)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs mr-1.5 mb-1">
+                          Force logout
+                        </button>
+                        {isBanned ? (
+                          <button onClick={() => unbanUser(u.account_name)} className="bg-online/15 text-online rounded px-2 py-1 text-xs mr-1.5 mb-1">
+                            Unban
+                          </button>
+                        ) : (
+                          <button onClick={() => banUser(u.account_name)} className="bg-danger/15 text-danger rounded px-2 py-1 text-xs mr-1.5 mb-1">
+                            Ban
+                          </button>
+                        )}
+                        <button onClick={() => deleteUser(u.account_name)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs hover:text-danger mb-1">
                           Delete
                         </button>
                       </>
@@ -217,7 +280,7 @@ export default function AdminPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         )}
@@ -440,6 +503,34 @@ export default function AdminPage() {
                       )}
                       <button onClick={() => deleteStoreGame(g.id)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs hover:text-danger">Delete</button>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ))}
+
+        {tab === "logs" &&
+          (logs.length === 0 ? (
+            <Empty text="No activity logged yet" />
+          ) : (
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="text-left text-txt2 text-[11px] uppercase tracking-wide border-b border-line">
+                  <th className="py-2 px-2">When</th>
+                  <th className="py-2 px-2 font-mono">Actor</th>
+                  <th className="py-2 px-2">Action</th>
+                  <th className="py-2 px-2 font-mono">Target</th>
+                  <th className="py-2 px-2">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((l) => (
+                  <tr key={l.id} className="border-b border-line text-txt1">
+                    <td className="py-2 px-2 text-txt2 whitespace-nowrap">{new Date(l.created_at).toLocaleString()}</td>
+                    <td className="py-2 px-2 font-mono">{l.actor}</td>
+                    <td className="py-2 px-2">{l.action.replace(/_/g, " ")}</td>
+                    <td className="py-2 px-2 font-mono">{l.target ?? "—"}</td>
+                    <td className="py-2 px-2 text-txt2">{l.detail ?? ""}</td>
                   </tr>
                 ))}
               </tbody>
