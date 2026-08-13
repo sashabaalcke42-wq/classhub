@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
   await supabaseAdmin
     .from("group_members")
-    .insert({ group_id: group.id, account_name: session.accountName });
+    .insert({ group_id: group.id, account_name: session.accountName, role: "admin" });
 
   return NextResponse.json(group);
 }

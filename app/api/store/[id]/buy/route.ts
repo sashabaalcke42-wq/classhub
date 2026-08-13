@@ -9,7 +9,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { data: game } = await supabaseAdmin
     .from("store_games")
-    .select("id, price, status")
+    .select("id, price, status, submitted_by")
     .eq("id", id)
     .maybeSingle();
   if (!game || game.status !== "approved") {
@@ -42,6 +42,22 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     .from("users")
     .update({ credits: user.credits - game.price })
     .eq("account_name", session.accountName);
+
+  // Pay the creator, if there is one and it isn't a self-purchase (which
+  // shouldn't normally be possible, but guard anyway).
+  if (game.price > 0 && game.submitted_by && game.submitted_by !== session.accountName) {
+    const { data: creator } = await supabaseAdmin
+      .from("users")
+      .select("credits")
+      .eq("account_name", game.submitted_by)
+      .maybeSingle();
+    if (creator) {
+      await supabaseAdmin
+        .from("users")
+        .update({ credits: creator.credits + game.price })
+        .eq("account_name", game.submitted_by);
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

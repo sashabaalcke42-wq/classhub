@@ -17,6 +17,8 @@ export default function DirectoryPage() {
   });
   const [busy, setBusy] = useState<string | null>(null);
   const [viewingBio, setViewingBio] = useState<any | null>(null);
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferMsg, setTransferMsg] = useState("");
 
   async function load() {
     const [p, f] = await Promise.all([
@@ -53,6 +55,24 @@ export default function DirectoryPage() {
   async function viewProfile(acc: string) {
     const res = await fetch(`/api/users/${acc}`);
     if (res.ok) setViewingBio(await res.json());
+    setTransferAmount("");
+    setTransferMsg("");
+  }
+
+  async function sendCoins() {
+    setTransferMsg("");
+    const res = await fetch("/api/profile/transfer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toAccount: viewingBio.account_name, amount: transferAmount }),
+    });
+    const data = await res.json();
+    if (!res.ok) setTransferMsg(data.error);
+    else {
+      setTransferMsg(`Sent ${transferAmount} coins!`);
+      setTransferAmount("");
+      load();
+    }
   }
 
   return (
@@ -126,8 +146,19 @@ export default function DirectoryPage() {
               </div>
             </div>
             <div className="text-sm text-txt1 mb-3">{viewingBio.bio || <span className="text-txt2">No bio yet</span>}</div>
-            <div className="text-[11px] text-txt2">Joined {new Date(viewingBio.created_at).toLocaleDateString()}</div>
-            <button onClick={() => setViewingBio(null)} className="mt-4 w-full bg-bg2 border border-line rounded-md py-2 text-sm">Close</button>
+            <div className="text-[11px] text-txt2 mb-4">Joined {new Date(viewingBio.created_at).toLocaleDateString()}</div>
+
+            <div className="border-t border-line pt-3 mb-3">
+              <label className="block text-[11px] uppercase tracking-wide text-txt2 mb-1.5">Send coins</label>
+              <div className="flex gap-2">
+                <input type="number" min={1} value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)}
+                  placeholder="Amount" className="flex-1 bg-bg2 border border-line rounded-md px-3 py-1.5 text-sm" />
+                <button onClick={sendCoins} className="bg-violet text-white rounded-md px-3 py-1.5 text-xs font-semibold">Send</button>
+              </div>
+              {transferMsg && <div className="text-xs mt-1.5 text-txt2">{transferMsg}</div>}
+            </div>
+
+            <button onClick={() => setViewingBio(null)} className="w-full bg-bg2 border border-line rounded-md py-2 text-sm">Close</button>
           </div>
         </div>
       )}

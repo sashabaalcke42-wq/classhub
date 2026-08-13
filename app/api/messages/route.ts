@@ -72,18 +72,44 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid scope" }, { status: 400 });
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("messages")
-    .insert({
-      scope,
-      group_id: scope === "group" ? groupId : null,
-      from_account: session.accountName,
-      display_name: session.displayName,
-      is_admin: session.isAdmin,
-      body: text,
-    })
-    .select()
-    .single();
+  const { data: sender } = await supabaseAdmin
+    .from("users")
+    .select("avatar_path")
+    .eq("account_name", session.accountName)
+    .maybeSingle();
+
+  // "/poll Question | Option A | Option B | Option C" creates a poll instead
+  // of a plain text message.
+  let insertRow: Record<string, any> = {
+    scope,
+    group_id: scope === "group" ? groupId : null,
+    from_account: session.accountName,
+    display_name: session.displayName,
+    is_admin: session.isAdmin,
+    avatar_path: sender?.avatar_path ?? null,
+    body: text,
+  };
+
+  if (text.startsWith("/poll ")) {
+    const parts = text.slice(6).split("|").map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 3) {
+      const [question, ...options] = parts;
+      insertRow = {
+        ...insertRow,
+        message_type: "poll",
+        poll_question: question,
+        poll_options: options.slice(0, 6),
+        body: question,
+      };
+    } else {
+      return NextResponse.json(
+        { error: "Poll format: /poll Question | Option A | Option B (at least 2 options)" },
+        { status: 400 }
+      );
+    }
+  }
+
+  const { data, error } = await supabaseAdmin.from("messages").insert(insertRow).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

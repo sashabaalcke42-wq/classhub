@@ -6,5 +6,5 @@ export default async function GlobalChatPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  return <ChatRoom title="Global chat" scope="global" me={session} />;
+  return <ChatRoom title="Global chat" scope="global" me={session} canPin={session.isAdmin} />;
 }

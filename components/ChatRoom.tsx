@@ -2,18 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import ConfettiBurst from "./ConfettiBurst";
+import PollMessage from "./PollMessage";
 
 type Msg = {
   id: string;
   from_account: string;
   display_name: string;
   is_admin: boolean;
+  avatar_path: string | null;
   body: string;
   created_at: string;
   scope: string;
   group_id: string | null;
+  pinned: boolean;
+  message_type: "text" | "poll";
+  poll_question: string | null;
+  poll_options: string[] | null;
 };
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+function avatarUrl(path: string | null) {
+  return path ? `${SUPABASE_URL}/storage/v1/object/public/avatars/${path}` : null;
+}
 function initials(name: string) {
   return (name || "?").trim().slice(0, 2).toUpperCase();
 }
@@ -29,17 +40,22 @@ export default function ChatRoom({
   scope,
   groupId,
   me,
+  canPin,
 }: {
   title: string;
   scope: "global" | "group";
   groupId?: string;
   me: { accountName: string; isAdmin: boolean };
+  canPin?: boolean;
 }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [showPinned, setShowPinned] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<ReturnType<typeof supabaseBrowser.channel> | null>(null);
 
   const query = scope === "global" ? "scope=global" : `scope=group&groupId=${groupId}`;
 
@@ -50,21 +66,21 @@ export default function ChatRoom({
 
   useEffect(() => {
     load();
-    // Realtime: instantly reflect new/removed messages for this scope.
     const channel = supabaseBrowser
       .channel(`messages-${scope}-${groupId ?? "global"}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "messages" },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as Msg;
-          if (row.scope !== scope) return;
-          if (scope === "group" && row.group_id !== groupId) return;
-          load();
-        }
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, (payload) => {
+        const row = (payload.new ?? payload.old) as Msg;
+        if (row.scope !== scope) return;
+        if (scope === "group" && row.group_id !== groupId) return;
+        load();
+      })
+      .on("broadcast", { event: "confetti" }, () => {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      })
       .subscribe();
 
+    channelRef.current = channel;
     return () => {
       supabaseBrowser.removeChannel(channel);
     };
@@ -79,6 +95,15 @@ export default function ChatRoom({
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
+
+    if (text === "/confetti") {
+      setInput("");
+      channelRef.current?.send({ type: "broadcast", event: "confetti", payload: {} });
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
+      return;
+    }
+
     setInput("");
     const res = await fetch("/api/messages", {
       method: "POST",
@@ -88,11 +113,19 @@ export default function ChatRoom({
     if (res.ok) {
       const newMsg: Msg = await res.json();
       setMessages((prev) => [...prev, newMsg]);
+    } else {
+      const data = await res.json();
+      alert(data.error ?? "Failed to send");
     }
   }
 
   async function remove(id: string) {
     await fetch(`/api/messages/${id}`, { method: "DELETE" });
+    load();
+  }
+
+  async function togglePin(id: string) {
+    await fetch(`/api/messages/${id}/pin`, { method: "POST" });
     load();
   }
 
@@ -118,10 +151,19 @@ export default function ChatRoom({
     load();
   }
 
+  const pinnedMessages = messages.filter((m) => m.pinned);
+
   return (
-    <div className="flex-1 flex flex-col min-w-0">
+    <div className="flex-1 flex flex-col min-w-0 relative">
+      {showConfetti && <ConfettiBurst />}
+
       <div className="h-[52px] border-b border-line flex items-center px-[18px] gap-2.5 bg-bg1">
         <h2 className="font-display text-lg font-bold">{title}</h2>
+        {pinnedMessages.length > 0 && (
+          <button onClick={() => setShowPinned((s) => !s)} className="text-xs text-gold flex items-center gap-1">
+            📌 {pinnedMessages.length} pinned
+          </button>
+        )}
         <div className="ml-auto flex items-center gap-3">
           {me.isAdmin && (
             <>
@@ -144,30 +186,38 @@ export default function ChatRoom({
         </div>
       </div>
 
+      {showPinned && pinnedMessages.length > 0 && (
+        <div className="bg-gold/5 border-b border-gold/20 px-5 py-2 max-h-[140px] overflow-y-auto">
+          {pinnedMessages.map((m) => (
+            <div key={m.id} className="text-xs text-txt1 py-1 flex items-center gap-2">
+              <span className="text-gold">📌</span>
+              <span className="font-semibold">{m.display_name}:</span>
+              <span className="text-txt2 truncate">{m.body}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-0.5">
         {messages.length === 0 ? (
           <div className="m-auto text-center text-txt2">
             <div className="text-sm text-txt1 mb-1">No messages yet</div>
-            Say hi 👋
+            Say hi 👋 (try <span className="font-mono">/poll</span> or <span className="font-mono">/confetti</span>)
           </div>
         ) : (
           messages.map((m) => {
             const canDelete = me.isAdmin || m.from_account === me.accountName;
+            const url = avatarUrl(m.avatar_path);
             return (
-              <div key={m.id} className={`flex gap-2.5 px-1 py-1.5 rounded-md hover:bg-bg1 group ${selectMode && selected.has(m.id) ? "bg-violet/10" : ""}`}>
+              <div key={m.id} className={`flex gap-2.5 px-1 py-1.5 rounded-md hover:bg-bg1 group ${selectMode && selected.has(m.id) ? "bg-violet/10" : ""} ${m.pinned ? "border-l-2 border-gold pl-2" : ""}`}>
                 {selectMode && (
-                  <input
-                    type="checkbox"
-                    checked={selected.has(m.id)}
-                    onChange={() => toggleSelected(m.id)}
-                    className="mt-2 flex-shrink-0"
-                  />
+                  <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleSelected(m.id)} className="mt-2 flex-shrink-0" />
                 )}
                 <div
-                  className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden"
                   style={{ background: colorFor(m.from_account) + "22", color: colorFor(m.from_account) }}
                 >
-                  {initials(m.display_name)}
+                  {url ? <img src={url} alt="" className="w-full h-full object-cover" /> : initials(m.display_name)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
@@ -175,16 +225,24 @@ export default function ChatRoom({
                     <span className="font-mono text-[11px] text-txt2">
                       {new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
-                    {canDelete && (
-                      <button
-                        className="ml-auto text-[11px] text-txt2 opacity-0 group-hover:opacity-100 hover:text-danger"
-                        onClick={() => remove(m.id)}
-                      >
-                        delete
-                      </button>
-                    )}
+                    <div className="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100">
+                      {canPin && (
+                        <button className="text-[11px] text-txt2 hover:text-gold" onClick={() => togglePin(m.id)}>
+                          {m.pinned ? "unpin" : "pin"}
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button className="text-[11px] text-txt2 hover:text-danger" onClick={() => remove(m.id)}>
+                          delete
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-sm break-words">{m.body}</div>
+                  {m.message_type === "poll" ? (
+                    <PollMessage messageId={m.id} question={m.poll_question ?? ""} options={m.poll_options ?? []} me={me.accountName} />
+                  ) : (
+                    <div className="text-sm break-words">{m.body}</div>
+                  )}
                 </div>
               </div>
             );
@@ -198,7 +256,7 @@ export default function ChatRoom({
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Message..."
+            placeholder="Message... (try /poll Q | A | B or /confetti)"
             className="flex-1 bg-transparent border-none outline-none text-sm py-2"
           />
           <button type="submit" className="bg-violet text-white rounded-lg px-4 py-2 text-sm font-semibold">

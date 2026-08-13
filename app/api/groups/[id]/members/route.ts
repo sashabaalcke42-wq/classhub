@@ -9,7 +9,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const { data, error } = await supabaseAdmin
     .from("group_members")
-    .select("account_name, users(display_name)")
+    .select("account_name, role, users(display_name)")
     .eq("group_id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
