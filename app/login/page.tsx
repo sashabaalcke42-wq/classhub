@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [accountName, setAccountName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [classCode, setClassCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     const url = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
     const body =
-      mode === "login" ? { accountName, password } : { accountName, displayName, password };
+      mode === "login" ? { accountName, password } : { accountName, displayName, password, classCode };
 
     const res = await fetch(url, {
       method: "POST",
@@ -73,6 +74,14 @@ export default function LoginPage() {
             className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm outline-none focus:border-violet"
             placeholder="••••••••" />
         </Field>
+
+        {mode === "signup" && (
+          <Field label="Class code">
+            <input value={classCode} onChange={(e) => setClassCode(e.target.value)}
+              className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm outline-none focus:border-violet"
+              placeholder="Ask your teacher for this" />
+          </Field>
+        )}
 
         <button disabled={loading} className="w-full bg-violet hover:bg-[#8b6dff] transition-colors text-white rounded-md py-2.5 font-semibold text-sm">
           {loading ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}

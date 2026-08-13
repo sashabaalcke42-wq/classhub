@@ -10,7 +10,7 @@ type DMMsg = { id: string; display_name: string; body: string; created_at: strin
 type LogEntry = { id: string; actor: string; action: string; target: string | null; detail: string | null; created_at: string };
 
 export default function AdminPage() {
-  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games" | "quizzes" | "store" | "logs">("users");
+  const [tab, setTab] = useState<"users" | "groups" | "dms" | "games" | "quizzes" | "store" | "logs" | "settings">("users");
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [dms, setDms] = useState<DMConv[]>([]);
@@ -23,6 +23,8 @@ export default function AdminPage() {
   const [editingStoreGame, setEditingStoreGame] = useState<any | null>(null);
   const [previewingGame, setPreviewingGame] = useState<any | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [signupCode, setSignupCode] = useState("");
+  const [savedMsg, setSavedMsg] = useState("");
   const [viewingDM, setViewingDM] = useState<DMConv | null>(null);
   const [dmMsgs, setDmMsgs] = useState<DMMsg[]>([]);
   const [me, setMe] = useState<string>("");
@@ -97,6 +99,7 @@ export default function AdminPage() {
     if (tab === "quizzes") loadQuizzes();
     if (tab === "store") loadStore();
     if (tab === "logs") loadLogs();
+    if (tab === "settings") loadSettings();
     setViewingDM(null);
   }, [tab]);
 
@@ -172,6 +175,30 @@ export default function AdminPage() {
   async function loadLogs() {
     setLogs(await fetch("/api/admin/logs").then((r) => r.json()));
   }
+  async function loadSettings() {
+    const s = await fetch("/api/admin/settings").then((r) => r.json());
+    setSignupCode(s.signup_code ?? "");
+  }
+  async function saveSignupCode() {
+    setSavedMsg("");
+    const res = await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signupCode }),
+    });
+    const data = await res.json();
+    if (!res.ok) alert(data.error);
+    else {
+      setSavedMsg("Saved — takes effect immediately, no redeploy needed.");
+      setTimeout(() => setSavedMsg(""), 4000);
+    }
+  }
+  function randomizeCode() {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let out = "";
+    for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    setSignupCode(out);
+  }
   async function deleteGroup(id: string) {
     if (!confirm("Delete this group and all its messages?")) return;
     await fetch(`/api/admin/groups/${id}`, { method: "DELETE" });
@@ -210,6 +237,7 @@ export default function AdminPage() {
         {tabBtn("quizzes", "Quizzes")}
         {tabBtn("store", "Store")}
         {tabBtn("logs", "Logs")}
+        {tabBtn("settings", "Settings")}
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
@@ -536,6 +564,25 @@ export default function AdminPage() {
               </tbody>
             </table>
           ))}
+
+        {tab === "settings" && (
+          <div className="max-w-[420px]">
+            <h4 className="text-xs uppercase tracking-wide text-txt2 mb-2">Signup class code</h4>
+            <p className="text-xs text-txt2 mb-3">
+              Anyone signing up (other than the very first account) must enter this code. Change it anytime the link
+              gets shared somewhere it shouldn't — it takes effect the moment you save, no redeploy required.
+            </p>
+            <div className="flex gap-2 mb-2">
+              <input value={signupCode} onChange={(e) => setSignupCode(e.target.value)}
+                className="flex-1 bg-bg2 border border-line rounded-md px-3 py-2 text-sm font-mono" />
+              <button onClick={randomizeCode} className="bg-bg3 border border-line rounded-md px-3 text-xs">Randomize</button>
+            </div>
+            <button onClick={saveSignupCode} className="bg-violet text-white rounded-md px-4 py-2 text-sm font-semibold">
+              Save code
+            </button>
+            {savedMsg && <div className="text-online text-xs mt-2">{savedMsg}</div>}
+          </div>
+        )}
       </div>
 
       {editingStoreGame && (

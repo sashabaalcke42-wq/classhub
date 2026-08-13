@@ -4,7 +4,7 @@ import { hashPassword } from "@/lib/password";
 import { createSession } from "@/lib/session";
 
 export async function POST(req: Request) {
-  const { accountName, displayName, password } = await req.json();
+  const { accountName, displayName, password, classCode } = await req.json();
 
   if (!accountName || !displayName || !password) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -26,11 +26,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
   }
 
-  // First account created on the whole site becomes admin.
+  // First account created on the whole site becomes admin — and always
+  // skips the class code, since no code exists to check yet at that point.
   const { count } = await supabaseAdmin
     .from("users")
     .select("*", { count: "exact", head: true });
   const isFirst = (count ?? 0) === 0;
+
+  if (!isFirst) {
+    const { data: setting } = await supabaseAdmin
+      .from("app_settings")
+      .select("value")
+      .eq("key", "signup_code")
+      .maybeSingle();
+    const requiredCode = setting?.value ?? "";
+    if (requiredCode && String(classCode ?? "").trim() !== requiredCode) {
+      return NextResponse.json({ error: "Incorrect class code" }, { status: 403 });
+    }
+  }
 
   const password_hash = await hashPassword(password);
 
