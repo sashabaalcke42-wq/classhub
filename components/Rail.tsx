@@ -133,7 +133,7 @@ export default function Rail({
       >
         ⏻
       </div>
-      <VersionInfo />
+      <VersionInfo isAdmin={isAdmin} />
     </div>
   );
 }

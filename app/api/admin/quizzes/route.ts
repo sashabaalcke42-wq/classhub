@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from("quizzes")
-    .select("id, title, description, release_at, end_at, created_at, quiz_questions(id)")
+    .select("id, title, description, release_at, end_at, created_at, deleted_at, quiz_questions(id)")
     .order("created_at", { ascending: false });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!session.isAdmin) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
-  const { title, description, releaseAt, endAt, questions } = await req.json();
+  const { title, description, releaseAt, endAt, questions, rewardPerCorrect } = await req.json();
 
   if (!title || !Array.isArray(questions) || questions.length === 0) {
     return NextResponse.json({ error: "Title and at least one question are required" }, { status: 400 });
@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       created_by: session.accountName,
       release_at: releaseAt || null,
       end_at: endAt || null,
+      reward_per_correct: Math.max(0, parseInt(rewardPerCorrect, 10) || 10),
     })
     .select()
     .single();

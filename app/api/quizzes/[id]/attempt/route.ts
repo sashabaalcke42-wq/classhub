@@ -19,6 +19,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "You've already submitted this quiz" }, { status: 409 });
   }
 
+  const { data: quiz } = await supabaseAdmin
+    .from("quizzes")
+    .select("reward_per_correct")
+    .eq("id", id)
+    .single();
+
   const { data: questions } = await supabaseAdmin
     .from("quiz_questions")
     .select("id, type, correct_answer")
@@ -56,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .eq("id", attemptId);
 
   // Award coins for every auto-graded correct answer (true/false, multiple choice).
-  const REWARD_PER_CORRECT = 10;
+  const REWARD_PER_CORRECT = quiz?.reward_per_correct ?? 10;
   const correctCount = rows.filter((r) => r.is_correct === true).length;
   if (correctCount > 0) {
     const { data: user } = await supabaseAdmin

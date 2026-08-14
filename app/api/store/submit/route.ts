@@ -99,5 +99,15 @@ export async function POST(req: Request) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // The creator always gets their own game in their Library for free,
+  // whether it's an admin's immediately-published upload or (once approved)
+  // a student's submission — see the admin approval route for that half.
+  if (session.isAdmin) {
+    await supabaseAdmin
+      .from("store_purchases")
+      .upsert({ account_name: session.accountName, game_id: gameId }, { onConflict: "account_name,game_id" });
+  }
+
   return NextResponse.json(game);
 }

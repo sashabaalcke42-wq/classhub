@@ -9,8 +9,19 @@ export default function LibraryPage() {
   const [playing, setPlaying] = useState<Game | null>(null);
 
   useEffect(() => {
-    fetch("/api/library").then((r) => r.json()).then(setGames);
+    load();
   }, []);
+
+  async function load() {
+    fetch("/api/library").then((r) => r.json()).then(setGames);
+  }
+
+  async function removeFromLibrary(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!confirm("Remove this game from your library? You'd need to buy it again to get it back.")) return;
+    await fetch(`/api/library/${id}`, { method: "DELETE" });
+    load();
+  }
 
   return (
     <div className="flex-1 flex flex-col">
@@ -29,7 +40,10 @@ export default function LibraryPage() {
               <div key={g.id} onClick={() => setPlaying(g)} className="bg-bg2 border border-line rounded-xl p-4 cursor-pointer hover:border-violet">
                 <div className="font-semibold text-sm mb-1">{g.name}</div>
                 {g.description && <div className="text-xs text-txt2 mb-3 line-clamp-2">{g.description}</div>}
-                <span className="text-xs text-violet">▶ Play</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-violet">▶ Play</span>
+                  <button onClick={(e) => removeFromLibrary(g.id, e)} className="text-[11px] text-txt2 hover:text-danger">Remove</button>
+                </div>
               </div>
             ))}
           </div>

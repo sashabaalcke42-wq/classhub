@@ -21,6 +21,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { error } = await supabaseAdmin.from("store_games").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // The submitter never has to buy their own game — grant it free the
+  // moment it's approved.
+  if (status === "approved") {
+    const { data: game } = await supabaseAdmin.from("store_games").select("submitted_by").eq("id", id).maybeSingle();
+    if (game?.submitted_by) {
+      await supabaseAdmin
+        .from("store_purchases")
+        .upsert({ account_name: game.submitted_by, game_id: id }, { onConflict: "account_name,game_id" });
+    }
+  }
+
   return NextResponse.json({ ok: true });
 }
 

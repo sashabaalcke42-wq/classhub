@@ -23,6 +23,8 @@ export default function PollMessage({
   }
   useEffect(() => {
     load();
+    const timer = setInterval(load, 2500);
+    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messageId]);
 

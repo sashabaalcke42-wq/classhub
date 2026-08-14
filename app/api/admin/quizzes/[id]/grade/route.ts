@@ -25,13 +25,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json(data);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id: quizId } = await params;
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!session.isAdmin) return NextResponse.json({ error: "Admins only" }, { status: 403 });
 
   const { responseId, isCorrect } = await req.json();
-  const REWARD_PER_CORRECT = 10;
+  const { data: quiz } = await supabaseAdmin.from("quizzes").select("reward_per_correct").eq("id", quizId).single();
+  const REWARD_PER_CORRECT = quiz?.reward_per_correct ?? 10;
   const newValue = !!isCorrect;
 
   const { data: existing } = await supabaseAdmin

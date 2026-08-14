@@ -643,6 +643,7 @@ function NewQuizModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
   const [description, setDescription] = useState("");
   const [releaseAt, setReleaseAt] = useState("");
   const [endAt, setEndAt] = useState("");
+  const [rewardPerCorrect, setRewardPerCorrect] = useState("10");
   const [questions, setQuestions] = useState<any[]>([{ type: "true_false", questionText: "", correctAnswer: "true", options: [] }]);
   const [error, setError] = useState("");
 
@@ -663,7 +664,7 @@ function NewQuizModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title, description, questions,
+        title, description, questions, rewardPerCorrect,
         releaseAt: releaseAt ? new Date(releaseAt).toISOString() : null,
         endAt: endAt ? new Date(endAt).toISOString() : null,
       }),
@@ -695,6 +696,12 @@ function NewQuizModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)}
               className="w-full bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
           </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-[11px] uppercase tracking-wide text-txt2 mb-1">Coins per correct answer</label>
+          <input type="number" min={0} value={rewardPerCorrect} onChange={(e) => setRewardPerCorrect(e.target.value)}
+            className="w-32 bg-bg2 border border-line rounded-md px-2 py-1.5 text-sm" />
         </div>
 
         {questions.map((q, i) => (
