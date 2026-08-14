@@ -172,6 +172,14 @@ export default function ChatRoom({
                   Delete {selected.size} selected
                 </button>
               )}
+              {selectMode && (
+                <button
+                  onClick={() => setSelected(new Set(messages.map((m) => m.id)))}
+                  className="text-xs px-3 py-1.5 rounded-md border bg-bg2 border-line text-txt1"
+                >
+                  Select all
+                </button>
+              )}
               <button
                 onClick={() => { setSelectMode((s) => !s); setSelected(new Set()); }}
                 className={`text-xs px-3 py-1.5 rounded-md border ${selectMode ? "bg-violet text-white border-violet" : "bg-bg2 border-line text-txt1"}`}
@@ -209,9 +217,19 @@ export default function ChatRoom({
             const canDelete = me.isAdmin || m.from_account === me.accountName;
             const url = avatarUrl(m.avatar_path);
             return (
-              <div key={m.id} className={`flex gap-2.5 px-1 py-1.5 rounded-md hover:bg-bg1 group ${selectMode && selected.has(m.id) ? "bg-violet/10" : ""} ${m.pinned ? "border-l-2 border-gold pl-2" : ""}`}>
+              <div
+                key={m.id}
+                onClick={() => selectMode && toggleSelected(m.id)}
+                className={`flex gap-2.5 px-1 py-1.5 rounded-md hover:bg-bg1 group ${selectMode ? "cursor-pointer" : ""} ${selectMode && selected.has(m.id) ? "bg-violet/10" : ""} ${m.pinned ? "border-l-2 border-gold pl-2" : ""}`}
+              >
                 {selectMode && (
-                  <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleSelected(m.id)} className="mt-2 flex-shrink-0" />
+                  <input
+                    type="checkbox"
+                    checked={selected.has(m.id)}
+                    onChange={() => toggleSelected(m.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-2 flex-shrink-0"
+                  />
                 )}
                 <div
                   className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden"
@@ -227,12 +245,12 @@ export default function ChatRoom({
                     </span>
                     <div className="ml-auto flex items-center gap-2 opacity-0 group-hover:opacity-100">
                       {canPin && (
-                        <button className="text-[11px] text-txt2 hover:text-gold" onClick={() => togglePin(m.id)}>
+                        <button className="text-[11px] text-txt2 hover:text-gold" onClick={(e) => { e.stopPropagation(); togglePin(m.id); }}>
                           {m.pinned ? "unpin" : "pin"}
                         </button>
                       )}
                       {canDelete && (
-                        <button className="text-[11px] text-txt2 hover:text-danger" onClick={() => remove(m.id)}>
+                        <button className="text-[11px] text-txt2 hover:text-danger" onClick={(e) => { e.stopPropagation(); remove(m.id); }}>
                           delete
                         </button>
                       )}

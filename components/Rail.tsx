@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import VersionInfo from "./VersionInfo";
 
 type Group = { id: string; name: string };
 
@@ -132,6 +133,7 @@ export default function Rail({
       >
         ⏻
       </div>
+      <VersionInfo />
     </div>
   );
 }

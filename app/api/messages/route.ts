@@ -91,6 +91,9 @@ export async function POST(req: Request) {
   };
 
   if (text.startsWith("/poll ")) {
+    if (scope === "global" && !session.isAdmin) {
+      return NextResponse.json({ error: "Only admins can create polls in Global chat" }, { status: 403 });
+    }
     const parts = text.slice(6).split("|").map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 3) {
       const [question, ...options] = parts;
@@ -112,5 +115,26 @@ export async function POST(req: Request) {
   const { data, error } = await supabaseAdmin.from("messages").insert(insertRow).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Keep global chat trimmed to the most recent 200 messages so it never
+  // overflows — runs after every global send, deleting only what's over cap.
+  if (scope === "global") {
+    const { count } = await supabaseAdmin
+      .from("messages")
+      .select("*", { count: "exact", head: true })
+      .eq("scope", "global");
+    if (count && count > 200) {
+      const { data: oldest } = await supabaseAdmin
+        .from("messages")
+        .select("id")
+        .eq("scope", "global")
+        .order("created_at", { ascending: true })
+        .limit(count - 200);
+      if (oldest && oldest.length) {
+        await supabaseAdmin.from("messages").delete().in("id", oldest.map((m) => m.id));
+      }
+    }
+  }
+
   return NextResponse.json(data);
 }

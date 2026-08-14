@@ -39,6 +39,7 @@ export default function ArcadePage() {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const gameIframeRef = useRef<HTMLIFrameElement>(null);
+  const latestScoreRef = useRef(0);
 
   async function load() {
     const [g, s] = await Promise.all([
@@ -52,32 +53,60 @@ export default function ArcadePage() {
     load();
   }, []);
 
+  function reportScore(score: number) {
+    if (!playing || score <= 0) return;
+    latestScoreRef.current = 0; // reported — a fresh play afterward starts counting from 0 again
+    fetch(`/api/arcade/${playing.id}/score`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ score }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setPopup({ coins: data.coinsAwarded ?? 0, achievements: data.newAchievements ?? [] });
+      });
+  }
+
   // Listen for score reports from the playing game's iframe. Games call:
-  //   window.parent.postMessage({ channel: 'classhub-arcade', type: 'game-over', score: N }, window.location.origin)
+  //   window.parent.postMessage({ channel: 'classhub-arcade', type: 'score-update', score: N }, '*')
+  //   — call this whenever the score changes, so progress isn't lost if the
+  //     player leaves before a clean game-over.
+  //   window.parent.postMessage({ channel: 'classhub-arcade', type: 'game-over', score: N }, '*')
+  //   — call this once when the game truly ends.
   //
   // Note: the game iframe is sandboxed WITHOUT allow-same-origin (on purpose,
-  // for security), which means its postMessage always reports origin "null"
-  // to us — so we can't check e.origin. Instead we verify the message came
-  // from this exact iframe by comparing e.source to its contentWindow.
+  // for security), which means its own origin is opaque ("null") — so games
+  // must postMessage with '*' as the target, and we verify the message came
+  // from this exact iframe by comparing e.source to its contentWindow rather
+  // than checking e.origin.
   useEffect(() => {
     function onMessage(e: MessageEvent) {
       if (!playing) return;
       if (e.source !== gameIframeRef.current?.contentWindow) return;
-      if (e.data?.channel !== "classhub-arcade" || e.data?.type !== "game-over") return;
+      if (e.data?.channel !== "classhub-arcade") return;
 
-      fetch(`/api/arcade/${playing.id}/score`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ score: e.data.score }),
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          setPopup({ coins: data.coinsAwarded ?? 0, achievements: data.newAchievements ?? [] });
-        });
+      if (e.data.type === "score-update") {
+        latestScoreRef.current = Math.max(0, Math.floor(Number(e.data.score) || 0));
+      } else if (e.data.type === "game-over") {
+        reportScore(Math.max(0, Math.floor(Number(e.data.score) || 0)));
+      }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing]);
+
+  function closePlayer() {
+    // Leaving without a clean game-over — still credit whatever score was
+    // last reported via score-update, if any.
+    if (latestScoreRef.current > 0) reportScore(latestScoreRef.current);
+    setPlaying(null);
+  }
+
+  function openPlayer(g: Game) {
+    latestScoreRef.current = 0;
+    setPlaying(g);
+  }
 
   async function upload(e: React.FormEvent) {
     e.preventDefault();
@@ -145,7 +174,7 @@ export default function ArcadePage() {
                 className="bg-bg2 border border-line rounded-xl overflow-hidden hover:border-violet hover:-translate-y-0.5 transition-all"
               >
                 <div
-                  onClick={() => setPlaying(g)}
+                  onClick={() => openPlayer(g)}
                   className="h-[100px] flex items-center justify-center text-3xl cursor-pointer"
                   style={{ background: `linear-gradient(135deg, ${colorFor(g.name)}, #12141d)` }}
                 >
@@ -206,7 +235,7 @@ export default function ArcadePage() {
       {playing && (
         <div className="fixed inset-0 bg-black/90 z-50 flex flex-col p-6">
           <div className="flex items-center gap-3 mb-3">
-            <button onClick={() => setPlaying(null)} className="bg-bg2 border border-line rounded-md px-3 py-1.5 text-sm">
+            <button onClick={closePlayer} className="bg-bg2 border border-line rounded-md px-3 py-1.5 text-sm">
               ← Back to Arcade
             </button>
             <h3 className="font-display text-lg font-bold">{playing.name}</h3>
