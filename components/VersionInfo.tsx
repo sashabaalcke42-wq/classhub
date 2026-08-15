@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-export const APP_VERSION = "7.0.0";
+export const APP_VERSION = "7.1.0";
 
 const CHANGELOG: { version: string; items: string[] }[] = [
+  { version: "7.1.0", items: [
+    "Banner images — drop a banner.png in a game's zip root and it becomes the cover art automatically",
+    "Clicking a game (Arcade, Store, or Library) now opens a Steam-style detail sidebar with description, stats, and a Play/Buy button, instead of jumping straight in",
+    "Arcade detail panel shows your best score, total plays, and achievement progress for that game",
+  ]},
   { version: "7.0.0", items: [
     "Community Suggestions tab (this!) — submit and upvote ideas for future versions",
     "Coin reward is now set per-quiz by the admin, instead of a fixed amount for every quiz",
