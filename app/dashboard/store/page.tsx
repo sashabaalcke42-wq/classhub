@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import GameCover from "@/components/GameCover";
+import GameDetailPanel from "@/components/GameDetailPanel";
 
 type Game = { id: string; name: string; description: string | null; price: number; submitted_by: string; owned: boolean };
+
+function bannerUrl(g: Game) {
+  return `/store-games/${g.id}/banner.png`;
+}
 
 export default function StorePage() {
   const [games, setGames] = useState<Game[]>([]);
@@ -15,6 +21,8 @@ export default function StorePage() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [viewingDetail, setViewingDetail] = useState<Game | null>(null);
+  const [playing, setPlaying] = useState<Game | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -39,6 +47,7 @@ export default function StorePage() {
     if (!res.ok) setError(data.error);
     else {
       setMsg("Purchased! Find it in your Library.");
+      setViewingDetail(null);
       load();
     }
   }
@@ -91,22 +100,48 @@ export default function StorePage() {
         ) : (
           <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
             {games.map((g) => (
-              <div key={g.id} className="bg-bg2 border border-line rounded-xl p-4">
-                <div className="font-semibold text-sm mb-1">{g.name}</div>
-                {g.description && <div className="text-xs text-txt2 mb-3 line-clamp-2">{g.description}</div>}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gold font-semibold">{g.price === 0 ? "Free" : `${g.price} coins`}</span>
-                  {g.owned ? (
-                    <span className="text-[11px] text-online">Owned</span>
-                  ) : (
-                    <button onClick={() => buy(g.id)} className="bg-violet text-white rounded px-3 py-1.5 text-xs font-semibold">Buy</button>
-                  )}
+              <div key={g.id} onClick={() => setViewingDetail(g)} className="bg-bg2 border border-line rounded-xl overflow-hidden cursor-pointer hover:border-violet transition-colors">
+                <GameCover bannerSrc={bannerUrl(g)} name={g.name} className="h-[110px] w-full" />
+                <div className="p-4">
+                  <div className="font-semibold text-sm mb-1">{g.name}</div>
+                  {g.description && <div className="text-xs text-txt2 mb-3 line-clamp-2">{g.description}</div>}
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gold font-semibold">{g.price === 0 ? "Free" : `${g.price} coins`}</span>
+                    {g.owned && <span className="text-[11px] text-online">Owned</span>}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {viewingDetail && (
+        <GameDetailPanel
+          mode="store"
+          id={viewingDetail.id}
+          name={viewingDetail.name}
+          description={viewingDetail.description}
+          addedBy={viewingDetail.submitted_by}
+          bannerSrc={bannerUrl(viewingDetail)}
+          price={viewingDetail.price}
+          owned={viewingDetail.owned}
+          onClose={() => setViewingDetail(null)}
+          onPlay={() => { setPlaying(viewingDetail); setViewingDetail(null); }}
+          onBuy={() => buy(viewingDetail.id)}
+        />
+      )}
+
+      {playing && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex flex-col p-6">
+          <div className="flex items-center gap-3 mb-3">
+            <button onClick={() => setPlaying(null)} className="bg-bg2 border border-line rounded-md px-3 py-1.5 text-sm">← Close</button>
+            <h3 className="font-display text-lg font-bold">{playing.name}</h3>
+          </div>
+          <iframe src={`/store-games/${playing.id}/index.html`} sandbox="allow-scripts allow-pointer-lock"
+            className="flex-1 w-full rounded-lg border border-line bg-white" />
+        </div>
+      )}
 
       {showSubmit && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setShowSubmit(false)}>

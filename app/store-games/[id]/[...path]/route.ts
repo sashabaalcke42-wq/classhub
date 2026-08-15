@@ -28,8 +28,9 @@ export async function GET(
     .maybeSingle();
   if (!game) return new NextResponse("Not found", { status: 404 });
 
-  // Must own the game (or be admin) to play it.
-  if (!session.isAdmin) {
+  // Must own the game (or be admin) to play it — except the cover banner,
+  // which should be visible while browsing the Store before you've bought it.
+  if (!session.isAdmin && relPath !== "banner.png") {
     const { data: owned } = await supabaseAdmin
       .from("store_purchases")
       .select("*")

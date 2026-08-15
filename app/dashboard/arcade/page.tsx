@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import GameCover from "@/components/GameCover";
+import GameDetailPanel from "@/components/GameDetailPanel";
 
 type Game = {
   id: string;
@@ -14,15 +16,11 @@ type Game = {
 };
 type Achievement = { id: string; name: string; description: string | null; icon: string; threshold_score: number; unlocked?: boolean };
 
-function colorFor(seed: string) {
-  const colors = ["#7c5cfc", "#00d9c0", "#ffb454", "#ff5470", "#4dabf7", "#e599f7"];
-  let h = 0;
-  for (const c of seed || "") h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return colors[h % colors.length];
-}
-
 function playUrl(g: Game) {
   return `/games/${g.id}/index.html`;
+}
+function bannerUrl(g: Game) {
+  return `/games/${g.id}/banner.png`;
 }
 
 export default function ArcadePage() {
@@ -30,8 +28,7 @@ export default function ArcadePage() {
   const [me, setMe] = useState<{ isAdmin: boolean } | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [playing, setPlaying] = useState<Game | null>(null);
-  const [achievementsFor, setAchievementsFor] = useState<Game | null>(null);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [viewingDetail, setViewingDetail] = useState<Game | null>(null);
   const [configuring, setConfiguring] = useState<Game | null>(null);
   const [popup, setPopup] = useState<{ coins: number; achievements: Achievement[] } | null>(null);
   const [uploadName, setUploadName] = useState("");
@@ -139,11 +136,6 @@ export default function ArcadePage() {
     load();
   }
 
-  async function openAchievements(g: Game) {
-    setAchievementsFor(g);
-    setAchievements(await fetch(`/api/arcade/${g.id}/achievements`).then((r) => r.json()));
-  }
-
   const admin = me?.isAdmin;
 
   return (
@@ -171,33 +163,37 @@ export default function ArcadePage() {
             {games.map((g) => (
               <div
                 key={g.id}
-                className="bg-bg2 border border-line rounded-xl overflow-hidden hover:border-violet hover:-translate-y-0.5 transition-all"
+                onClick={() => setViewingDetail(g)}
+                className="bg-bg2 border border-line rounded-xl overflow-hidden hover:border-violet hover:-translate-y-0.5 transition-all cursor-pointer"
               >
-                <div
-                  onClick={() => openPlayer(g)}
-                  className="h-[100px] flex items-center justify-center text-3xl cursor-pointer"
-                  style={{ background: `linear-gradient(135deg, ${colorFor(g.name)}, #12141d)` }}
-                >
-                  🎮
-                </div>
+                <GameCover bannerSrc={bannerUrl(g)} name={g.name} className="h-[100px] w-full" />
                 <div className="p-3">
                   <div className="font-semibold text-sm mb-0.5">{g.name}</div>
                   <div className="text-[11px] text-txt2 mb-2">added by {g.added_by}</div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => openAchievements(g)} className="text-[11px] text-gold">🏆 Achievements</button>
-                    {admin && (
-                      <>
-                        <button onClick={() => setConfiguring(g)} className="text-[11px] text-txt2 hover:text-txt0 ml-auto">Configure</button>
-                        <button onClick={() => remove(g.id)} className="text-[11px] text-txt2 hover:text-danger">Remove</button>
-                      </>
-                    )}
-                  </div>
+                  {admin && (
+                    <div className="flex items-center gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); setConfiguring(g); }} className="text-[11px] text-txt2 hover:text-txt0">Configure</button>
+                      <button onClick={(e) => { e.stopPropagation(); remove(g.id); }} className="text-[11px] text-txt2 hover:text-danger ml-auto">Remove</button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {viewingDetail && (
+        <GameDetailPanel
+          mode="arcade"
+          id={viewingDetail.id}
+          name={viewingDetail.name}
+          addedBy={viewingDetail.added_by}
+          bannerSrc={bannerUrl(viewingDetail)}
+          onClose={() => setViewingDetail(null)}
+          onPlay={() => { openPlayer(viewingDetail); setViewingDetail(null); }}
+        />
+      )}
 
       {showUpload && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setShowUpload(false)}>
@@ -274,30 +270,6 @@ export default function ArcadePage() {
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {achievementsFor && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={(e) => e.target === e.currentTarget && setAchievementsFor(null)}>
-          <div className="bg-bg1 border border-line rounded-xl p-6 w-[380px]">
-            <h3 className="font-display text-lg font-bold mb-4">{achievementsFor.name} — Achievements</h3>
-            {achievements.length === 0 ? (
-              <div className="text-sm text-txt2">No achievements set for this game yet.</div>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {achievements.map((a) => (
-                  <div key={a.id} className={`flex items-center gap-3 p-2 rounded-md ${a.unlocked ? "bg-gold/10" : "bg-bg2 opacity-50"}`}>
-                    <span className="text-xl">{a.unlocked ? a.icon : "🔒"}</span>
-                    <div>
-                      <div className="text-sm font-medium">{a.name}</div>
-                      <div className="text-[11px] text-txt2">{a.description || `Reach ${a.threshold_score} points`}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            <button onClick={() => setAchievementsFor(null)} className="mt-4 bg-bg2 border border-line rounded-md px-4 py-2 text-sm w-full">Close</button>
-          </div>
         </div>
       )}
 

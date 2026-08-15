@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import GameCover from "@/components/GameCover";
+import GameDetailPanel from "@/components/GameDetailPanel";
 
-type Game = { id: string; name: string; description: string | null };
+type Game = { id: string; name: string; description: string | null; submitted_by?: string };
+
+function bannerUrl(g: Game) {
+  return `/store-games/${g.id}/banner.png`;
+}
 
 export default function LibraryPage() {
   const [games, setGames] = useState<Game[]>([]);
   const [playing, setPlaying] = useState<Game | null>(null);
+  const [viewingDetail, setViewingDetail] = useState<Game | null>(null);
 
   useEffect(() => {
     load();
@@ -16,10 +23,10 @@ export default function LibraryPage() {
     fetch("/api/library").then((r) => r.json()).then(setGames);
   }
 
-  async function removeFromLibrary(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
+  async function removeFromLibrary(id: string) {
     if (!confirm("Remove this game from your library? You'd need to buy it again to get it back.")) return;
     await fetch(`/api/library/${id}`, { method: "DELETE" });
+    setViewingDetail(null);
     load();
   }
 
@@ -37,18 +44,31 @@ export default function LibraryPage() {
         ) : (
           <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}>
             {games.map((g) => (
-              <div key={g.id} onClick={() => setPlaying(g)} className="bg-bg2 border border-line rounded-xl p-4 cursor-pointer hover:border-violet">
-                <div className="font-semibold text-sm mb-1">{g.name}</div>
-                {g.description && <div className="text-xs text-txt2 mb-3 line-clamp-2">{g.description}</div>}
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-violet">▶ Play</span>
-                  <button onClick={(e) => removeFromLibrary(g.id, e)} className="text-[11px] text-txt2 hover:text-danger">Remove</button>
+              <div key={g.id} onClick={() => setViewingDetail(g)} className="bg-bg2 border border-line rounded-xl overflow-hidden cursor-pointer hover:border-violet transition-colors">
+                <GameCover bannerSrc={bannerUrl(g)} name={g.name} className="h-[110px] w-full" />
+                <div className="p-4">
+                  <div className="font-semibold text-sm mb-1">{g.name}</div>
+                  {g.description && <div className="text-xs text-txt2 line-clamp-2">{g.description}</div>}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {viewingDetail && (
+        <GameDetailPanel
+          mode="library"
+          id={viewingDetail.id}
+          name={viewingDetail.name}
+          description={viewingDetail.description}
+          addedBy={viewingDetail.submitted_by ?? ""}
+          bannerSrc={bannerUrl(viewingDetail)}
+          onClose={() => setViewingDetail(null)}
+          onPlay={() => { setPlaying(viewingDetail); setViewingDetail(null); }}
+          onRemove={() => removeFromLibrary(viewingDetail.id)}
+        />
+      )}
 
       {playing && (
         <div className="fixed inset-0 bg-black/90 z-50 flex flex-col p-6">
