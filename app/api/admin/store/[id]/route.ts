@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
+import { notify } from "@/lib/notify";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,6 +22,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { error } = await supabaseAdmin.from("store_games").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (status && ["approved", "rejected", "needs_changes"].includes(status)) {
+    const { data: game } = await supabaseAdmin.from("store_games").select("submitted_by, name").eq("id", id).maybeSingle();
+    if (game?.submitted_by) {
+      const readable = status.replace("_", " ");
+      await notify(game.submitted_by, "store_review", `Your game "${game.name}" was ${readable}`, undefined, "/dashboard/store");
+    }
+  }
 
   // The submitter never has to buy their own game — grant it free the
   // moment it's approved.

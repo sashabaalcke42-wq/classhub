@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data, error } = await supabaseAdmin
     .from("users")
-    .select("account_name, display_name, bio, avatar_path, credits, is_admin, created_at")
+    .select("account_name, display_name, bio, avatar_path, credits, is_admin, desktop_notifications, created_at")
     .eq("account_name", session.accountName)
     .single();
 
@@ -20,8 +20,8 @@ export async function PATCH(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { displayName, bio } = await req.json();
-  const updates: Record<string, string> = {};
+  const { displayName, bio, desktopNotifications } = await req.json();
+  const updates: Record<string, any> = {};
 
   if (displayName !== undefined) {
     const clean = String(displayName).trim();
@@ -32,6 +32,9 @@ export async function PATCH(req: Request) {
   }
   if (bio !== undefined) {
     updates.bio = String(bio).slice(0, 300);
+  }
+  if (desktopNotifications !== undefined) {
+    updates.desktop_notifications = !!desktopNotifications;
   }
 
   const { error } = await supabaseAdmin

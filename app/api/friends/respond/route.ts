@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
+import { notify } from "@/lib/notify";
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
     if (error && error.code !== "23505") {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    await notify(from, "friend_accept", `${session.displayName} accepted your friend request`, undefined, "/dashboard/friends");
   }
 
   return NextResponse.json({ ok: true });

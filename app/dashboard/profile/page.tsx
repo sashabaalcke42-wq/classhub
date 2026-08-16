@@ -9,6 +9,7 @@ type Profile = {
   avatar_path: string | null;
   credits: number;
   is_admin: boolean;
+  desktop_notifications: boolean;
   created_at: string;
 };
 
@@ -92,6 +93,24 @@ export default function ProfilePage() {
     }
   }
 
+  async function toggleDesktopNotifications() {
+    if (!profile) return;
+    const turningOn = !profile.desktop_notifications;
+    if (turningOn && typeof Notification !== "undefined") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setErr("Desktop notifications need browser permission — check your browser's site settings if you want to enable this.");
+        return;
+      }
+    }
+    await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ desktopNotifications: turningOn }),
+    });
+    load();
+  }
+
   if (!profile) return <div className="flex-1 flex items-center justify-center text-txt2">Loading...</div>;
 
   const url = avatarUrl(profile.avatar_path);
@@ -150,6 +169,17 @@ export default function ProfilePage() {
               Change password
             </button>
           </form>
+
+          <div className="pt-4 border-t border-line">
+            <h4 className="text-xs uppercase tracking-wide text-txt2 mb-2">Notifications</h4>
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={profile.desktop_notifications} onChange={toggleDesktopNotifications} />
+              <span className="text-sm">Desktop notifications</span>
+            </label>
+            <div className="text-[11px] text-txt2 mt-1">
+              Pops a browser notification when you get a new one. In-app notifications (the bell icon) are always on regardless of this setting.
+            </div>
+          </div>
         </div>
       </div>
     </div>

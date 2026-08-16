@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
+import { notify } from "@/lib/notify";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -70,6 +71,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           .eq("account_name", accountName);
       }
     }
+  }
+
+  const gradedAccount = (existing?.quiz_attempts as any)?.account_name;
+  if (gradedAccount && existing?.is_correct === null) {
+    await notify(
+      gradedAccount,
+      "quiz_graded",
+      `Your written answer was graded ${newValue ? "correct" : "incorrect"}`,
+      undefined,
+      `/dashboard/quizzes/${quizId}`
+    );
   }
 
   return NextResponse.json({ ok: true });

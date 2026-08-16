@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
+import { notifyAllUsers } from "@/lib/notify";
 
 export async function GET() {
   const session = await getSession();
@@ -72,6 +73,15 @@ export async function POST(req: Request) {
 
   const { error: qErr } = await supabaseAdmin.from("quiz_questions").insert(rows);
   if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 });
+
+  // Only immediately-available quizzes get a notification right now. A quiz
+  // scheduled for a future release time doesn't get one when that time
+  // actually arrives — that would need a scheduled job running independently
+  // of anyone visiting the site, which isn't set up yet.
+  const now = new Date().toISOString();
+  if (!quiz.release_at || quiz.release_at <= now) {
+    await notifyAllUsers("quiz", `New quiz available: ${quiz.title}`, undefined, "/dashboard/quizzes", session.accountName);
+  }
 
   return NextResponse.json(quiz);
 }

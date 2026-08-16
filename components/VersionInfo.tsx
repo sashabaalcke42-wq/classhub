@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-export const APP_VERSION = "7.1.0";
+export const APP_VERSION = "8.0.0";
 
 const CHANGELOG: { version: string; items: string[] }[] = [
+  { version: "8.0.0", items: [
+    "Notifications: bell icon + coin counter now live in a top bar on every page",
+    "In-app notifications for: friend requests (sent/accepted), new DMs, game submissions (to admins), game review results, new quizzes, quiz grading, suggestion status changes, and coins received",
+    "Desktop notifications — a Profile toggle that pops real browser notifications for new alerts",
+  ]},
   { version: "7.1.0", items: [
     "Banner images — drop a banner.png in a game's zip root and it becomes the cover art automatically",
     "Clicking a game (Arcade, Store, or Library) now opens a Steam-style detail sidebar with description, stats, and a Play/Buy button, instead of jumping straight in",

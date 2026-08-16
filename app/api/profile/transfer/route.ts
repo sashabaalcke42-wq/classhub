@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
 import { logActivity } from "@/lib/activityLog";
+import { notify } from "@/lib/notify";
 
 export async function POST(req: Request) {
   const session = await getSession();
@@ -36,5 +37,6 @@ export async function POST(req: Request) {
   await supabaseAdmin.from("users").update({ credits: recipient.credits + sendAmount }).eq("account_name", target);
 
   await logActivity(session.accountName, "coin_transfer", target, `${sendAmount} coins`);
+  await notify(target, "coins", `${session.displayName} sent you ${sendAmount} coins`, undefined, "/dashboard/profile");
   return NextResponse.json({ ok: true });
 }

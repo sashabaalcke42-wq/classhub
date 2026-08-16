@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import AdmZip from "adm-zip";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
+import { notifyAdmins } from "@/lib/notify";
 
 const ALLOWED_EXT = new Set([
   ".html", ".htm", ".js", ".css", ".json", ".png", ".jpg", ".jpeg", ".gif",
@@ -107,6 +108,8 @@ export async function POST(req: Request) {
     await supabaseAdmin
       .from("store_purchases")
       .upsert({ account_name: session.accountName, game_id: gameId }, { onConflict: "account_name,game_id" });
+  } else {
+    await notifyAdmins("store_submission", `${session.displayName} submitted a game: ${name}`, undefined, "/dashboard/admin");
   }
 
   return NextResponse.json(game);

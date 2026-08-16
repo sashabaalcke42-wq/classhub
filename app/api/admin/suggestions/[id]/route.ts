@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession } from "@/lib/session";
+import { notify } from "@/lib/notify";
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -14,6 +15,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   const { error } = await supabaseAdmin.from("suggestions").update({ status }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const { data: suggestion } = await supabaseAdmin.from("suggestions").select("account_name, title").eq("id", id).maybeSingle();
+  if (suggestion?.account_name) {
+    await notify(suggestion.account_name, "suggestion", `Your suggestion "${suggestion.title}" is now ${status}`);
+  }
+
   return NextResponse.json({ ok: true });
 }
 

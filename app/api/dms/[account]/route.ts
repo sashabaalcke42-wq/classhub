@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSession, destroySession } from "@/lib/session";
+import { notify } from "@/lib/notify";
 
 function dmKey(a: string, b: string) {
   return [a, b].sort().join("__");
@@ -84,5 +85,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ account
   const { data, error } = await supabaseAdmin.from("messages").insert(insertRow).select().single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await notify(other, "dm", `New message from ${session.displayName}`, text.slice(0, 80), `/dashboard/dm/${session.accountName}`);
+
   return NextResponse.json(data);
 }
