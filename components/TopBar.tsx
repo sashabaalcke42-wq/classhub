@@ -60,51 +60,53 @@ export default function TopBar() {
   }
 
   return (
-    <div className="h-[44px] border-b border-line bg-bg1 flex items-center justify-end px-4 gap-4 flex-shrink-0">
-      {credits !== null && (
-        <div className="text-xs text-gold font-semibold flex items-center gap-1">🪙 {credits}</div>
-      )}
+    <div className="h-[52px] flex items-center justify-end gap-4 px-5 fixed top-0 right-0 z-[70] pointer-events-none">
+      <div className="flex items-center gap-4 pointer-events-auto">
+        {credits !== null && (
+          <div className="text-xs text-gold font-semibold flex items-center gap-1">🪙 {credits}</div>
+        )}
 
-      <div className="relative">
-        <button onClick={() => setOpen((o) => !o)} className="relative text-txt1 hover:text-txt0 text-base">
-          🔔
-          {unreadCount > 0 && (
-            <span className="absolute -top-1.5 -right-2 bg-danger text-white text-[9px] rounded-full min-w-[15px] h-[15px] flex items-center justify-center px-1">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          )}
-        </button>
+        <div className="relative">
+          <button onClick={() => setOpen((o) => !o)} className="relative text-txt1 hover:text-txt0 text-base">
+            🔔
+            {unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-2 bg-danger text-white text-[9px] rounded-full min-w-[15px] h-[15px] flex items-center justify-center px-1">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
 
-        {open && (
-          <div className="absolute right-0 mt-2 w-[320px] bg-bg1 border border-line rounded-lg shadow-xl z-[90] max-h-[420px] flex flex-col">
-            <div className="flex items-center justify-between px-3 py-2 border-b border-line">
-              <span className="text-xs font-semibold">Notifications</span>
-              {unreadCount > 0 && <button onClick={markAllRead} className="text-[11px] text-violet">Mark all read</button>}
-            </div>
-            <div className="overflow-y-auto flex-1">
-              {notifs.length === 0 ? (
-                <div className="text-xs text-txt2 text-center py-6">Nothing yet</div>
-              ) : (
-                notifs.map((n) => (
-                  <div
-                    key={n.id}
-                    onClick={() => openNotif(n)}
-                    className={`px-3 py-2.5 border-b border-line cursor-pointer hover:bg-bg2 ${!n.read ? "bg-violet/5" : ""}`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-violet mt-1.5 flex-shrink-0" />}
-                      <div className="min-w-0">
-                        <div className="text-xs font-medium">{n.title}</div>
-                        {n.body && <div className="text-[11px] text-txt2 mt-0.5">{n.body}</div>}
-                        <div className="text-[10px] text-txt2 mt-1">{new Date(n.created_at).toLocaleString()}</div>
+          {open && (
+            <div className="absolute right-0 mt-2 w-[320px] bg-bg1 border border-line rounded-lg shadow-xl z-[90] max-h-[420px] flex flex-col">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-line">
+                <span className="text-xs font-semibold">Notifications</span>
+                {unreadCount > 0 && <button onClick={markAllRead} className="text-[11px] text-violet">Mark all read</button>}
+              </div>
+              <div className="overflow-y-auto flex-1">
+                {notifs.length === 0 ? (
+                  <div className="text-xs text-txt2 text-center py-6">Nothing yet</div>
+                ) : (
+                  notifs.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => openNotif(n)}
+                      className={`px-3 py-2.5 border-b border-line cursor-pointer hover:bg-bg2 ${!n.read ? "bg-violet/5" : ""}`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-violet mt-1.5 flex-shrink-0" />}
+                        <div className="min-w-0">
+                          <div className="text-xs font-medium">{n.title}</div>
+                          {n.body && <div className="text-[11px] text-txt2 mt-0.5">{n.body}</div>}
+                          <div className="text-[10px] text-txt2 mt-1">{new Date(n.created_at).toLocaleString()}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
