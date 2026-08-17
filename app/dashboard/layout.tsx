@@ -11,9 +11,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   return (
     <div className="h-screen flex">
       <Rail accountName={session.accountName} displayName={session.displayName} isAdmin={session.isAdmin} />
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-h-0">
         <TopBar />
-        <div className="flex-1 flex min-w-0">{children}</div>
+        <div className="flex-1 flex min-h-0">{children}</div>
       </div>
     </div>
   );
