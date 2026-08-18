@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 type Profile = {
   account_name: string;
@@ -119,6 +120,7 @@ export default function ProfilePage() {
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] bg-bg1">
         <h2 className="font-display text-lg font-bold">Profile</h2>
+        <HeaderWidgets />
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-5">
         <div className="max-w-[480px] flex flex-col gap-6">

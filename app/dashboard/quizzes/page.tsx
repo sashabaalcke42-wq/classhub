@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 type Quiz = {
   id: string; title: string; description: string | null;
@@ -21,6 +22,7 @@ export default function QuizzesPage() {
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] bg-bg1">
         <h2 className="font-display text-lg font-bold">Quizzes</h2>
+        <HeaderWidgets />
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {quizzes.length === 0 ? (

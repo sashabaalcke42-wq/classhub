@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 type Question = {
   id: string;
@@ -75,6 +76,7 @@ export default function TakeQuizPage() {
       <div className="h-[52px] border-b border-line flex items-center px-[18px] gap-3 bg-bg1">
         <button onClick={() => router.push("/dashboard/quizzes")} className="text-txt2 text-sm">← Back</button>
         <h2 className="font-display text-lg font-bold">{quiz?.title ?? "Quiz results"}</h2>
+        <HeaderWidgets />
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-5">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import GameCover from "@/components/GameCover";
 import GameDetailPanel from "@/components/GameDetailPanel";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 type Game = { id: string; name: string; description: string | null; submitted_by?: string };
 
@@ -34,6 +35,7 @@ export default function LibraryPage() {
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] bg-bg1">
         <h2 className="font-display text-lg font-bold">Library</h2>
+        <HeaderWidgets />
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4">
         {games.length === 0 ? (

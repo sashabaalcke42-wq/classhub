@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-export const APP_VERSION = "8.0.0";
+export const APP_VERSION = "8.0.2";
 
 const CHANGELOG: { version: string; items: string[] }[] = [
+  { version: "8.0.2", items: [
+    "Fixed: rail and top bar scrolling away instead of staying fixed (missing min-h-0 on nested flex layout)",
+    "Notifications/coins now merged directly into each page's existing header bar instead of a separate floating overlay — no more double bars, no more overlapping buttons",
+  ]},
   { version: "8.0.0", items: [
     "Notifications: bell icon + coin counter now live in a top bar on every page",
     "In-app notifications for: friend requests (sent/accepted), new DMs, game submissions (to admins), game review results, new quizzes, quiz grading, suggestion status changes, and coins received",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 type Person = { account_name: string; display_name: string; avatar_path: string | null; credits: number };
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -79,6 +80,7 @@ export default function DirectoryPage() {
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] gap-3 bg-bg1">
         <h2 className="font-display text-lg font-bold">Directory</h2>
+        <HeaderWidgets />
       </div>
       <div className="px-5 pt-4 flex gap-2 flex-wrap">
         <input

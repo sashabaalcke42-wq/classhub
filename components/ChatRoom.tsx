@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import ConfettiBurst from "./ConfettiBurst";
 import PollMessage from "./PollMessage";
+import HeaderWidgets from "./HeaderWidgets";
 
 type Msg = {
   id: string;
@@ -191,6 +192,7 @@ export default function ChatRoom({
           <div className="flex items-center gap-1.5 text-xs text-txt2">
             <span className="w-[7px] h-[7px] rounded-full bg-online animate-pulse" /> live
           </div>
+          <HeaderWidgets pushRight={false} />
         </div>
       </div>
 

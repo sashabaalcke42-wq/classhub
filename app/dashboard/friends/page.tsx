@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 export default function FriendsPage() {
   const router = useRouter();
   const [friends, setFriends] = useState<string[]>([]);
   const [requests, setRequests] = useState<string[]>([]);
+  const [outgoing, setOutgoing] = useState<string[]>([]);
   const [target, setTarget] = useState("");
   const [msg, setMsg] = useState("");
 
@@ -16,12 +18,32 @@ export default function FriendsPage() {
       const data = await res.json();
       setFriends(data.friends);
       setRequests(data.requests);
+      setOutgoing(data.outgoing ?? []);
     }
   }
 
   useEffect(() => {
     load();
   }, []);
+
+  async function cancelRequest(toAccount: string) {
+    await fetch("/api/friends/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toAccount }),
+    });
+    load();
+  }
+
+  async function removeFriend(accountName: string) {
+    if (!confirm(`Remove ${accountName} as a friend?`)) return;
+    await fetch("/api/friends/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountName }),
+    });
+    load();
+  }
 
   async function sendRequest() {
     setMsg("");
@@ -51,6 +73,7 @@ export default function FriendsPage() {
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] bg-bg1">
         <h2 className="font-display text-lg font-bold">Friends</h2>
+        <HeaderWidgets />
       </div>
       <div className="flex-1 overflow-y-auto px-5 py-4">
         <div className="max-w-[520px]">
@@ -87,19 +110,30 @@ export default function FriendsPage() {
           {friends.length === 0 ? (
             <div className="text-center text-txt2 py-6">
               <div className="text-sm text-txt1 mb-1">No friends yet</div>
-              Add someone by their account name above.
+              Add someone by their account name above, or browse the Directory.
             </div>
           ) : (
             friends.map((f) => (
-              <div
-                key={f}
-                className="flex items-center justify-between px-2 py-2 rounded-md hover:bg-bg2 text-sm cursor-pointer"
-                onClick={() => router.push(`/dashboard/dm/${f}`)}
-              >
-                <span>{f}</span>
-                <span className="bg-bg3 border border-line rounded px-2 py-1 text-xs">Message</span>
+              <div key={f} className="flex items-center justify-between px-2 py-2 rounded-md hover:bg-bg2 text-sm">
+                <span className="cursor-pointer" onClick={() => router.push(`/dashboard/dm/${f}`)}>{f}</span>
+                <span className="flex gap-2">
+                  <span className="bg-bg3 border border-line rounded px-2 py-1 text-xs cursor-pointer" onClick={() => router.push(`/dashboard/dm/${f}`)}>Message</span>
+                  <button onClick={() => removeFriend(f)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs hover:text-danger">Remove</button>
+                </span>
               </div>
             ))
+          )}
+
+          {outgoing.length > 0 && (
+            <>
+              <h4 className="text-xs uppercase tracking-wide text-txt2 mt-6 mb-2">Outgoing requests</h4>
+              {outgoing.map((o) => (
+                <div key={o} className="flex items-center justify-between px-2 py-2 rounded-md hover:bg-bg2 text-sm">
+                  <span>{o}</span>
+                  <button onClick={() => cancelRequest(o)} className="bg-bg3 border border-line rounded px-2 py-1 text-xs">Cancel</button>
+                </div>
+              ))}
+            </>
           )}
         </div>
       </div>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import GameCover from "@/components/GameCover";
 import GameDetailPanel from "@/components/GameDetailPanel";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 type Game = { id: string; name: string; description: string | null; price: number; submitted_by: string; owned: boolean };
 
@@ -85,10 +86,12 @@ export default function StorePage() {
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] gap-3 bg-bg1">
         <h2 className="font-display text-lg font-bold">Store</h2>
-        <span className="text-xs text-gold ml-2">{credits} coins</span>
-        <button onClick={() => setShowSubmit(true)} className="ml-auto bg-bg3 border border-line rounded-md px-3.5 py-1.5 text-sm">
-          {isAdmin ? "+ Add game" : "Submit a game"}
-        </button>
+        <div className="ml-auto flex items-center gap-3">
+          <button onClick={() => setShowSubmit(true)} className="bg-bg3 border border-line rounded-md px-3.5 py-1.5 text-sm">
+            {isAdmin ? "+ Add game" : "Submit a game"}
+          </button>
+          <HeaderWidgets pushRight={false} />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">

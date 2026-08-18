@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import ConfettiBurst from "./ConfettiBurst";
 import PollMessage from "./PollMessage";
+import HeaderWidgets from "./HeaderWidgets";
 
 type Msg = {
   id: string;
@@ -111,6 +112,7 @@ export default function DMRoom({
             📌 {pinnedMessages.length} pinned
           </button>
         )}
+        <HeaderWidgets />
       </div>
 
       {showPinned && pinnedMessages.length > 0 && (

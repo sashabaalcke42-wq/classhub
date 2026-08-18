@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import HeaderWidgets from "@/components/HeaderWidgets";
 
 type User = { account_name: string; display_name: string; is_admin: boolean; credits: number; banned_until: string | null; ban_reason: string | null; created_at: string };
 type Group = { id: string; name: string; created_by: string; memberCount: number };
@@ -228,6 +229,7 @@ export default function AdminPage() {
     <div className="flex-1 flex flex-col">
       <div className="h-[52px] border-b border-line flex items-center px-[18px] bg-bg1">
         <h2 className="font-display text-lg font-bold text-gold">Admin</h2>
+        <HeaderWidgets />
       </div>
       <div className="flex gap-2 px-5 pt-3.5">
         {tabBtn("users", "Users")}
