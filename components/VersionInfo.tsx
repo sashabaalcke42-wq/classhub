@@ -2,9 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-export const APP_VERSION = "8.0.2";
+export const APP_VERSION = "9.0.0";
 
 const CHANGELOG: { version: string; items: string[] }[] = [
+  { version: "9.0.0", items: [
+    "Maintenance mode — locks the dashboard to admins only while you're doing migrations or major updates",
+    "Site-wide dismissible announcement banner, set from Admin \u2192 Settings",
+    "Custom site name shown in the browser tab title",
+  ]},
+  { version: "8.0.3", items: [
+    "Fixed slow game loading — the file server was querying the database on every single file a game needs (HTML, JS, each asset) for a lookup that was always predictable, adding real delay for games split across multiple small files",
+    "Games now cache for 24 hours (up from 1) with a 7-day stale-while-revalidate window, so repeat plays load instantly",
+  ]},
   { version: "8.0.2", items: [
     "Fixed: rail and top bar scrolling away instead of staying fixed (missing min-h-0 on nested flex layout)",
     "Notifications/coins now merged directly into each page's existing header bar instead of a separate floating overlay — no more double bars, no more overlapping buttons",

@@ -21,13 +21,6 @@ export async function GET(
   const session = await getSession();
   if (!session) return new NextResponse("Unauthorized", { status: 401 });
 
-  const { data: game } = await supabaseAdmin
-    .from("store_games")
-    .select("storage_path")
-    .eq("id", id)
-    .maybeSingle();
-  if (!game) return new NextResponse("Not found", { status: 404 });
-
   // Must own the game (or be admin) to play it — except the cover banner,
   // which should be visible while browsing the Store before you've bought it.
   if (!session.isAdmin && relPath !== "banner.png") {
@@ -40,9 +33,11 @@ export async function GET(
     if (!owned) return new NextResponse("You don't own this game", { status: 403 });
   }
 
+  // storage_path is always exactly `store/${id}` (set at upload time), so no
+  // need for a separate query just to look that up.
   const { data, error } = await supabaseAdmin.storage
     .from("store-games")
-    .download(`${game.storage_path}/${relPath}`);
+    .download(`store/${id}/${relPath}`);
   if (error || !data) return new NextResponse("File not found", { status: 404 });
 
   const ext = "." + (relPath.split(".").pop() ?? "").toLowerCase();
@@ -50,6 +45,6 @@ export async function GET(
   const buffer = Buffer.from(await data.arrayBuffer());
 
   return new NextResponse(buffer, {
-    headers: { "Content-Type": contentType, "Cache-Control": "private, max-age=3600" },
+    headers: { "Content-Type": contentType, "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800" },
   });
 }

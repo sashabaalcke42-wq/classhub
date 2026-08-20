@@ -25,6 +25,9 @@ export default function AdminPage() {
   const [previewingGame, setPreviewingGame] = useState<any | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [signupCode, setSignupCode] = useState("");
+  const [siteName, setSiteName] = useState("");
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
   const [savedMsg, setSavedMsg] = useState("");
   const [viewingDM, setViewingDM] = useState<DMConv | null>(null);
   const [dmMsgs, setDmMsgs] = useState<DMMsg[]>([]);
@@ -179,6 +182,9 @@ export default function AdminPage() {
   async function loadSettings() {
     const s = await fetch("/api/admin/settings").then((r) => r.json());
     setSignupCode(s.signup_code ?? "");
+    setSiteName(s.site_name ?? "ClassHub");
+    setMaintenanceMode(s.maintenance_mode === "true");
+    setAnnouncement(s.announcement ?? "");
   }
   async function saveSignupCode() {
     setSavedMsg("");
@@ -193,6 +199,34 @@ export default function AdminPage() {
       setSavedMsg("Saved — takes effect immediately, no redeploy needed.");
       setTimeout(() => setSavedMsg(""), 4000);
     }
+  }
+  async function saveSiteName() {
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ siteName }),
+    });
+    setSavedMsg("Site name saved.");
+    setTimeout(() => setSavedMsg(""), 4000);
+  }
+  async function toggleMaintenance() {
+    const next = !maintenanceMode;
+    if (next && !confirm("Turn on maintenance mode? Everyone except admins will be locked out of the dashboard until you turn it off.")) return;
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ maintenanceMode: next }),
+    });
+    setMaintenanceMode(next);
+  }
+  async function saveAnnouncement() {
+    await fetch("/api/admin/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ announcement }),
+    });
+    setSavedMsg(announcement ? "Announcement saved and live." : "Announcement cleared.");
+    setTimeout(() => setSavedMsg(""), 4000);
   }
   function randomizeCode() {
     const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -583,6 +617,41 @@ export default function AdminPage() {
               Save code
             </button>
             {savedMsg && <div className="text-online text-xs mt-2">{savedMsg}</div>}
+
+            <div className="border-t border-line mt-6 pt-5">
+              <h4 className="text-xs uppercase tracking-wide text-txt2 mb-2">Site name</h4>
+              <p className="text-xs text-txt2 mb-3">Shown in the browser tab title.</p>
+              <div className="flex gap-2">
+                <input value={siteName} onChange={(e) => setSiteName(e.target.value)}
+                  className="flex-1 bg-bg2 border border-line rounded-md px-3 py-2 text-sm" />
+                <button onClick={saveSiteName} className="bg-bg3 border border-line rounded-md px-4 text-sm">Save</button>
+              </div>
+            </div>
+
+            <div className="border-t border-line mt-6 pt-5">
+              <h4 className="text-xs uppercase tracking-wide text-txt2 mb-2">Maintenance mode</h4>
+              <p className="text-xs text-txt2 mb-3">
+                While on, only admins can access the dashboard — everyone else sees a "back soon" page. Use this during
+                database migrations or major updates.
+              </p>
+              <label className="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" checked={maintenanceMode} onChange={toggleMaintenance} />
+                <span className="text-sm">{maintenanceMode ? "Maintenance mode is ON" : "Maintenance mode is off"}</span>
+              </label>
+            </div>
+
+            <div className="border-t border-line mt-6 pt-5">
+              <h4 className="text-xs uppercase tracking-wide text-txt2 mb-2">Announcement banner</h4>
+              <p className="text-xs text-txt2 mb-3">
+                A short message shown to everyone at the top of the site. Leave blank and save to clear it.
+              </p>
+              <textarea value={announcement} onChange={(e) => setAnnouncement(e.target.value)} rows={2} maxLength={300}
+                placeholder="e.g. Quiz posted Friday — check it out!"
+                className="w-full bg-bg2 border border-line rounded-md px-3 py-2 text-sm mb-2 resize-none" />
+              <button onClick={saveAnnouncement} className="bg-violet text-white rounded-md px-4 py-2 text-sm font-semibold">
+                Save announcement
+              </button>
+            </div>
           </div>
         )}
       </div>

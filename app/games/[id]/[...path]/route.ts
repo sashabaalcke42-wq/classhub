@@ -29,17 +29,14 @@ export async function GET(
   const { id, path } = await params;
   const relPath = path.join("/");
 
-  const { data: game } = await supabaseAdmin
-    .from("games")
-    .select("storage_path")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (!game) return new NextResponse("Game not found", { status: 404 });
-
+  // storage_path is always exactly `games/${id}` (set at upload time), so
+  // there's no need to query the database just to look that up again — this
+  // used to cost a full DB round-trip on every single file a game needs
+  // (HTML, then JS, then every asset), which added up fast for games split
+  // across several small files.
   const { data, error } = await supabaseAdmin.storage
     .from("games")
-    .download(`${game.storage_path}/${relPath}`);
+    .download(`games/${id}/${relPath}`);
 
   if (error || !data) return new NextResponse("File not found", { status: 404 });
 
@@ -50,7 +47,7 @@ export async function GET(
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": contentType,
-      "Cache-Control": "public, max-age=3600",
+      "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
     },
   });
 }
