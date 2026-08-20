@@ -50,7 +50,7 @@ export async function getSession(): Promise<SessionPayload | null> {
     // cookies from a Server Component render, only from Route Handlers.
     const { data: user } = await supabaseAdmin
       .from("users")
-      .select("session_version, banned_until")
+      .select("session_version, banned_until, is_admin")
       .eq("account_name", claims.accountName)
       .maybeSingle();
 
@@ -58,7 +58,10 @@ export async function getSession(): Promise<SessionPayload | null> {
     if (user.session_version !== claims.sessionVersion) return null;
     if (user.banned_until && new Date(user.banned_until) > new Date()) return null;
 
-    return { accountName: claims.accountName, displayName: claims.displayName, isAdmin: claims.isAdmin };
+    // isAdmin is read from the database here, not the token — otherwise
+    // promoting/demoting someone wouldn't take effect until they logged out
+    // and back in, since the JWT's isAdmin claim is fixed at login time.
+    return { accountName: claims.accountName, displayName: claims.displayName, isAdmin: user.is_admin };
   } catch {
     return null;
   }

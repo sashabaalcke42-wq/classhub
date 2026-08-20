@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-export const APP_VERSION = "9.0.0";
+export const APP_VERSION = "9.0.1";
 
 const CHANGELOG: { version: string; items: string[] }[] = [
+  { version: "9.0.1", items: [
+    "Fixed: promoting/demoting someone to admin had no effect on their own session until they logged out and back in — isAdmin is now re-checked from the database on every request, not just read from their login token",
+  ]},
   { version: "9.0.0", items: [
     "Maintenance mode — locks the dashboard to admins only while you're doing migrations or major updates",
     "Site-wide dismissible announcement banner, set from Admin \u2192 Settings",

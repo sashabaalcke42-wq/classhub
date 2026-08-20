@@ -108,21 +108,23 @@ export default function AdminPage() {
   }, [tab]);
 
   async function toggleAdmin(accountName: string, isAdmin: boolean) {
-    await fetch("/api/admin/users", {
+    const res = await fetch("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accountName, isAdmin: !isAdmin }),
     });
+    if (!res.ok) alert("Failed: " + (await res.json()).error);
     loadUsers();
   }
   async function editCoins(accountName: string, current: number) {
     const input = prompt(`Set coin balance for ${accountName}:`, String(current));
     if (input === null) return;
-    await fetch("/api/admin/users", {
+    const res = await fetch("/api/admin/users", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accountName, credits: input }),
     });
+    if (!res.ok) alert("Failed: " + (await res.json()).error);
     loadUsers();
   }
   async function deleteUser(accountName: string) {
