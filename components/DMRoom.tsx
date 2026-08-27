@@ -51,7 +51,18 @@ export default function DMRoom({
   useEffect(() => {
     load();
     const t = setInterval(load, 3000);
-    return () => clearInterval(t);
+
+    function onVisible() {
+      if (document.visibilityState === "visible") load();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otherAccount]);
 

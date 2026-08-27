@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 
-export const APP_VERSION = "9.0.1";
+export const APP_VERSION = "10.0.0";
 
 const CHANGELOG: { version: string; items: string[] }[] = [
+  { version: "10.0.0", items: [
+    "Notifications, coins, DMs, Friends, and group member lists now refresh instantly the moment you switch back to the tab, instead of waiting on a slow timer",
+    "Honest note: this fixes staleness while you're actively using the app. True background push (OS notifications while you're in another tab) needs real Web Push infrastructure — that's next, not yet done",
+  ]},
   { version: "9.0.1", items: [
     "Fixed: promoting/demoting someone to admin had no effect on their own session until they logged out and back in — isAdmin is now re-checked from the database on every request, not just read from their login token",
   ]},

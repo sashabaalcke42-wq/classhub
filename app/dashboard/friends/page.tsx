@@ -24,6 +24,17 @@ export default function FriendsPage() {
 
   useEffect(() => {
     load();
+    const t = setInterval(load, 10000);
+    function onVisible() {
+      if (document.visibilityState === "visible") load();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, []);
 
   async function cancelRequest(toAccount: string) {

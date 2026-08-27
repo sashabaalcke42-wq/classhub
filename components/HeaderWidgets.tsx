@@ -41,8 +41,23 @@ export default function HeaderWidgets({ pushRight = true }: { pushRight?: boolea
 
   useEffect(() => {
     loadAll();
-    const t = setInterval(loadAll, 15000);
-    return () => clearInterval(t);
+    const t = setInterval(loadAll, 10000);
+
+    // Browsers throttle setInterval hard in background/inactive tabs, so on
+    // top of the base interval, refetch immediately the instant the tab
+    // becomes visible/focused again — this is what actually fixes "I always
+    // have to refresh" for anyone switching back from another tab.
+    function onVisible() {
+      if (document.visibilityState === "visible") loadAll();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
   }, []);
 
   async function openNotif(n: Notif) {
